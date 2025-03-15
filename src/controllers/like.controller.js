@@ -6,13 +6,13 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
 
 const toggleVideoLike = asyncHandler(async (req, res) => {
-  const { videoId } = req?.params;
+  const { videoId } = req.body;
   // check if video with this id exist of not
   const video = await Video.findById(videoId);
-  console.log(req.params);
+
 
   if (!video) {
-    console.log(req.params, req.user);
+    
     throw new ApiError(400, "Invalid Video ID");
   }
   const userId = req?.user._id;

@@ -9,7 +9,7 @@ import {
   uploadOnCloudinary,
 } from "../utils/cloudinary.js";
 
-const getAllVideos = asyncHandler(async (req, res) => {
+const searchVideos = asyncHandler(async (req, res) => {
   try {
     const {
       page = 1,
@@ -17,16 +17,13 @@ const getAllVideos = asyncHandler(async (req, res) => {
       query,
       sortBy = "createdAt",
       sortType = "asc",
-      userId,
     } = req.query;
 
     const filter = {};
     if (query) {
       filter.title = { $regex: query, $options: "i" };
     }
-    if (userId) {
-      filter.userId = userId;
-    }
+   
 
     const pageNum = parseInt(page);
     const pageLimit = parseInt(limit);
@@ -70,6 +67,8 @@ const getAllVideos = asyncHandler(async (req, res) => {
   }
 });
 
+
+
 const publishAVideo = asyncHandler(async (req, res) => {
   try {
     const { title, description , tags} = req.body;
@@ -89,7 +88,7 @@ const publishAVideo = asyncHandler(async (req, res) => {
       throw new ApiError(400, "video title and description is required");
     }
     console.log("req.files : ", req.files);
-    const videoLocalpath = req?.files?.videoFile[0]?.path;
+    const videoLocalpath = req.files?.videoFile[0]?.path;
     console.log("Video loacalPath : ", videoLocalpath);
 
     const videoThumbnailLocalPath = req?.files?.thumbnail[0]?.path;
@@ -126,9 +125,9 @@ const publishAVideo = asyncHandler(async (req, res) => {
       thumbnail: thumbnailUrl?.url,
       description,
       owner: userId,
-      duration: videoUrl?.duration,
-      thumbnailPublicId: thumbnailUrl?.public_id,
-      videoFilePublicId: videoUrl?.public_id,
+      duration: videoUrl.duration,
+      thumbnailPublicId: thumbnailUrl.public_id,
+      videoFilePublicId: videoUrl.public_id,
       tags: tags? tags:[]
     });
 
@@ -149,22 +148,22 @@ const publishAVideo = asyncHandler(async (req, res) => {
 });
 
 const getVideoById = asyncHandler(async (req, res) => {
-  const {videoId, userId} = req.body;
+  const {videoId} = req.query;
+  console.log("videoId",videoId);
 
   const isValidId = isValidObjectId(videoId);
   if (!isValidId) {
     throw new ApiError(400, "invalid videoId");
   }
-  const video = await Video.findByIdAndUpdate(
-    { _id: videoId },
-    {
-      $inc: { views: 1 },
-    },
-    { new: true }
-  );
+  const video = await Video.findByIdAndUpdate(videoId,{
+    $inc:{
+      view:1,
+    }
+    }).select("-videoPublicId -thumbnailPublicId");
   console.log("req.body : ", req?.body);
+  const userId = req?.user?._id;
   
-  console.log(video);
+  console.log("video",video);
 
   if (userId) {
     const result = await User.findByIdAndUpdate(
@@ -192,7 +191,7 @@ const getVideoById = asyncHandler(async (req, res) => {
 });
 
 const updateVideo = asyncHandler(async (req, res) => {
-  const { videoId } = req.params;
+  const { videoId } = req.body;
   const video = await Video.findById(videoId);
   if (!video) {
     throw new ApiError(400, "Video not found");
@@ -284,8 +283,9 @@ const deleteVideo = asyncHandler(async (req, res) => {
 });
 
 const togglePublishStatus = asyncHandler(async (req, res) => {
-  const { videoId } = req.params;
+  const { videoId } = req.body;
   const video = await Video.findById(videoId);
+  console.log(video)
   const isOwner = video.isOwner(req?.user._id);
 
   if (!isOwner) {
@@ -315,7 +315,7 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
 });
 
 export {
-  getAllVideos,
+  searchVideos,
   publishAVideo,
   getVideoById,
   updateVideo,

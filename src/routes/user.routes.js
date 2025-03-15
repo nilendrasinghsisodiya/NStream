@@ -13,29 +13,27 @@ import {
   getUserWatchHistory,
   getUserPlaylists,
   getUserTweets,
+  createUser
 } from "../controllers/user.controller.js";
 
 import { upload } from "../middlewares/multer.middleware.js";
 import { verifyJwt } from "../middlewares/auth.middleware.js";
 import {getUserRecommendation} from '../controllers/recommendation.controller.js';
+import { createUserValidator,loginValidator } from "../validation.js";
 const router = Router();
 
 router.route("/register").post(
-  upload.fields([
-    { name: "avatar", maxCount: 1 },
-    {
-      name: "coverImage",
-      maxCount: 1,
-    },
-  ]),
+ loginValidator,
   registerUser
 );
 
-router.route("/login").post(loginUser);
+router.route("/login").post(loginValidator,loginUser);
 
 // secured routes
 
 router.route("/logout").post(verifyJwt, logoutUser);
+
+router.route("/create").put(verifyJwt,createUserValidator,createUser);
 
 router.route("/refresh-token").post(refreshAccessToken);
 router.route("/change-password").patch(verifyJwt, changeCurrentPassword);
@@ -50,13 +48,13 @@ router
   .route("cover-image")
   .patch(verifyJwt, upload.single("coverImage"), updateUserCoverImage);
 
-router.route("/channel/:username").get( getUserChannelProfile);
+router.route("/channel").get( getUserChannelProfile);
 
 router.route("/history").get(verifyJwt, getUserWatchHistory);
 
-router.route("/playlists/:username").get(getUserPlaylists);
+router.route("/playlists").get(getUserPlaylists);
 router.route("/recommendations").get(verifyJwt, getUserRecommendation);
-router.route("/tweets/:username").get(getUserTweets);
+router.route("/tweets").get(getUserTweets);
 
 
 

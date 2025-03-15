@@ -30,7 +30,7 @@ const createPlaylist = asyncHandler(async (req, res) => {
 });
 
 const getPlaylistById = asyncHandler(async (req, res) => {
-  const { playlistId } = req.params;
+  const { playlistId } = req.query;
   //TODO: get playlist by id
   const isValidId = isValidObjectId(playlistId);
   if (!isValidId) {
@@ -101,7 +101,7 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
 });
 
 const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
-  const { playlistId, videoId } = req.params;
+  const { playlistId, videoId } = req.body;
   // TODO: remove video from playlist
   if (!isValidObjectId(playlistId) || !isValidObjectId(videoId)) {
     throw new ApiError(400, "invalid playlist or video id");
@@ -145,7 +145,7 @@ const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
 });
 
 const deletePlaylist = asyncHandler(async (req, res) => {
-  const { playlistId } = req.params;
+  const { playlistId } = req.body;
   // TODO: delete playlist
   if (!isValidObjectId(playlistId)) {
     throw new ApiError(400, "invalid playlist id");
@@ -171,7 +171,7 @@ const deletePlaylist = asyncHandler(async (req, res) => {
 });
 
 const updatePlaylist = asyncHandler(async (req, res) => {
-  const { playlistId } = req.params;
+  const { playlistId } = req.body;
   const { name, description } = req.body;
   //TODO: update playlist
   const userId = req?.user._id;

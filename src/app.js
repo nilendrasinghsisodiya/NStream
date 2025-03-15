@@ -24,6 +24,14 @@ app.use(express.urlencoded({
 }));
 app.use(express.static("public"));
 app.use(cookieParser())
+app.use((err, req, res, next) => {
+    console.error(err.stack); // Log error to console
+  
+    res.status(err.status || 500).json({
+      success: false,
+      message: err.message || "Internal Server Error"
+    });
+  });
 
 
 
@@ -41,12 +49,12 @@ import dashboardRouter from "./routes/dashboard.routes.js"
 
 // routes declaration
 
-app.use("/api/v1/users",userRouter)
+app.use("/api/v1/user",userRouter)
 
-app.use("/api/v1/like/:videoID",likeRouter);
+app.use("/api/v1/like/",likeRouter);
 
 
-app.use("/api/v1/videos", videoRouter)
+app.use("/api/v1/video", videoRouter)
 
 app.use("/api/v1/playlist",playlistRouter)
 

@@ -9,7 +9,7 @@ router.route("/updatePlaylist").patch(verifyJwt,updatePlaylist);
 router.route("/addVideos").patch(verifyJwt,addVideoToPlaylist);
 router.route("/delete").delete(verifyJwt,deletePlaylist);
 router.route("/removeVideos").patch(verifyJwt,removeVideoFromPlaylist);
-router.route("/:playlistId").get(getPlaylistById);
+router.route("/").get(getPlaylistById);
 
 
 export default router;

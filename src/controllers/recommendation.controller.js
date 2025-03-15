@@ -4,15 +4,37 @@ import { Video } from "../models/video.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-
+/**
+ * 
+ */
 const getUserRecommendation = asyncHandler(async (req, res) => {
-  const user = req.user;
-    const recentUserTags = await User.findById(user._id).select('recentlyWatchedVideoTags');
-    console.log(recentUserTags);
-    return res.status(200).json(new ApiResponse(200,recentUserTags,"recent watched video tags"));
+  const TagsArray = req.user.recentlyWatchedVideoTags;
+ 
+  console.log("recentlyWatchVideoTags",TagsArray);
+  
+  const recommendedVideos = await Video.aggregate([
+    {
+      $match: {
+        tags: { $in: TagsArray },
+      },
+    },
+    {
+      $addFields: {
+        matchCount: {
+          $size: {
+            $setIntersection: ["$tags", TagsArray],
+          },
+        },
+      },
+    },
+    { $sort: { matchCount: -1 } },
+  ]);
 
+  console.log("RecommendedVideos",recommendedVideos);
+  return res
+    .status(200)
+    .json(new ApiResponse(200, recommendedVideos, "recommended videos"));
 });
-
 
 const getRelatedVideos = asyncHandler(async (req, res) => {
   const { videoId } = req.body;
@@ -25,7 +47,7 @@ const getRelatedVideos = asyncHandler(async (req, res) => {
   const video = await Video.findById(videoId);
 
   // can be done with video.find but is less fesiable and can be more customized
-  // can add a title matching system but would need to design it first 
+  // can add a title matching system but would need to design it first
   //possible steps
   // 1. split the title by space
   // 2. to be implemented {remove comman words such what to  and who , others
@@ -33,7 +55,7 @@ const getRelatedVideos = asyncHandler(async (req, res) => {
   // 4. match by those remaining words using regex
   // 5. should be case insesitive}
   // 6. after that we should do tag based matching which is straight forward and assign weights to videos with more tags matched
-  
+
   const tags = Array.isArray(video.tags) ? video.tags : [];
   console.log(video);
   const aggregationQuerry = [
@@ -68,24 +90,29 @@ const getRelatedVideos = asyncHandler(async (req, res) => {
     { $skip: (pageNum - 1) * pageLimit },
     { $limit: pageLimit },
   ];
-  
-  
-  const options = {
-    page:pageNum,
-    limit:pageLimit,
-    customLabels:{
-        docs:"related videos",
-        totalDocs:"total related videos",
-        totalPages: "total pages",
-      page: "current page",
-    }
-};
-const relatedVideos = await Video.aggregatePaginate(aggregationQuerry,options);
-if(!relatedVideos){
-    throw new ApiError(500,"failed to fetch related videos");
 
-}
-return res.status(200).json(new ApiResponse(200,relatedVideos,"related vidoes fetched successfully"));
+  const options = {
+    page: pageNum,
+    limit: pageLimit,
+    customLabels: {
+      docs: "related videos",
+      totalDocs: "total related videos",
+      totalPages: "total pages",
+      page: "current page",
+    },
+  };
+  const relatedVideos = await Video.aggregatePaginate(
+    aggregationQuerry,
+    options
+  );
+  if (!relatedVideos) {
+    throw new ApiError(500, "failed to fetch related videos");
+  }
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, relatedVideos, "related vidoes fetched successfully")
+    );
 });
 
-export {getUserRecommendation, getRelatedVideos };
+export { getUserRecommendation, getRelatedVideos };

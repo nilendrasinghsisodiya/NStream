@@ -5,7 +5,7 @@ const userSchema = new mongoose.Schema(
   {
     username: {
       type: String,
-      required: true,
+     
       unique: true,
       lowercase: true,
       trim: true,
@@ -20,13 +20,13 @@ const userSchema = new mongoose.Schema(
     },
     fullname: {
       type: String,
-      required: true,
+      
       trim: true,
-      index: true,
+      
     },
     avatar: {
       type: String, //cloud url
-      required: true,
+     
     },
     coverImage: {
       type: String,
@@ -46,11 +46,11 @@ const userSchema = new mongoose.Schema(
     },
     avatarPublicId: {
       type: String,
-      required: true,
+     
     },
     coverImagePublicId: {
       type: String,
-      required: true,
+     
     },
     recentlyWatchedVideoTags: [{ type: String}],
   },

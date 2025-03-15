@@ -6,8 +6,8 @@ const router = Router();
 
 
 router.route("/").post(verifyJwt,createTweet)
-router.route("/:tweetId").patch(verifyJwt,updateTweet)
-router.route("/:tweetId").delete(verifyJwt,deleteTweet);
+router.route("/").patch(verifyJwt,updateTweet)
+router.route("/").delete(verifyJwt,deleteTweet);
 
 
 export default router;

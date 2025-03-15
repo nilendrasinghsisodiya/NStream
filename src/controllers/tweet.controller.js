@@ -29,7 +29,7 @@ const createTweet = asyncHandler(async (req, res) => {
 
 const updateTweet = asyncHandler(async (req, res) => {
   //TODO: update tweet
-  const { tweetId } = req.params;
+  const { tweetId } = req.body;
   if (!isValidObjectId(tweetId)) {
     throw new ApiError(400, "Invalid tweet id");
   }
@@ -71,7 +71,7 @@ const updateTweet = asyncHandler(async (req, res) => {
 
 const deleteTweet = asyncHandler(async (req, res) => {
   //TODO: delete tweet
-  const { tweetId } = req.params;
+  const { tweetId } = req.body;
   const userId = req?.user?._id;
   if (!userId) {
     throw new ApiError(401, "Unauthorzied access");

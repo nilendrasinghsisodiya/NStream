@@ -4,7 +4,7 @@ import {toggleVideoLike} from "../controllers/like.controller.js"
 
 const router = Router();
 
-router.route("/:videoId").post(verifyJwt,toggleVideoLike)
+router.route("/").post(verifyJwt,toggleVideoLike)
 
 
 export default router;
