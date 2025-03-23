@@ -5,11 +5,10 @@ const userSchema = new mongoose.Schema(
   {
     username: {
       type: String,
-     
       unique: true,
       lowercase: true,
       trim: true,
-      index: true,
+      
     },
     email: {
       type: String,
@@ -58,13 +57,29 @@ const userSchema = new mongoose.Schema(
 );
 
 userSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
+  console.log("🔹 Running pre-save hook for:", this.email);
+
+  if (!this.isModified("password")) {
+    console.log("⚠️ Password not modified, skipping hashing.");
+    return next();
+  }
+
+  console.log("🔸 Password Before Hashing:", this.password);
   this.password = await bcrypt.hash(this.password, 10);
+  console.log("✅ Hashed Password:", this.password);
+  
   next();
 });
 
 userSchema.methods.isPasswordCorrect = async function (password) {
-  return await bcrypt.compare(password, this.password);
+  console.log("Entered Password:", password);
+  console.log("Stored Hashed Password:", this.password);
+ 
+
+  const result = await bcrypt.compare(password, this.password);
+  console.log("Password Match Result:", result);
+  
+  return result;
 };
 
 userSchema.methods.generateAccessToken = function () {

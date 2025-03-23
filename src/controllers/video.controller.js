@@ -4,6 +4,7 @@ import { User } from "../models/user.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+
 import {
   deleteFromCloudinary,
   uploadOnCloudinary,
@@ -23,7 +24,6 @@ const searchVideos = asyncHandler(async (req, res) => {
     if (query) {
       filter.title = { $regex: query, $options: "i" };
     }
-   
 
     const pageNum = parseInt(page);
     const pageLimit = parseInt(limit);
@@ -67,11 +67,9 @@ const searchVideos = asyncHandler(async (req, res) => {
   }
 });
 
-
-
 const publishAVideo = asyncHandler(async (req, res) => {
   try {
-    const { title, description , tags} = req.body;
+    const { title, description, tags } = req.body;
 
     // step 1 : check if user is logged in
     // step 2: check if video thumbnail description and title is provided
@@ -128,7 +126,7 @@ const publishAVideo = asyncHandler(async (req, res) => {
       duration: videoUrl.duration,
       thumbnailPublicId: thumbnailUrl.public_id,
       videoFilePublicId: videoUrl.public_id,
-      tags: tags? tags:[]
+      tags: tags ? tags : [],
     });
 
     if (!video) {
@@ -148,30 +146,83 @@ const publishAVideo = asyncHandler(async (req, res) => {
 });
 
 const getVideoById = asyncHandler(async (req, res) => {
-  const {videoId} = req.query;
-  console.log("videoId",videoId);
+  const { videoId } = req.query;
+  console.log("videoId", videoId);
 
   const isValidId = isValidObjectId(videoId);
   if (!isValidId) {
     throw new ApiError(400, "invalid videoId");
   }
-  const video = await Video.findByIdAndUpdate(videoId,{
-    $inc:{
-      view:1,
-    }
-    }).select("-videoPublicId -thumbnailPublicId");
+  const video = await Video.aggregate([
+    { $match: { _id: new mongoose.Types.ObjectId(videoId) } },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "owner",
+        foreignField: "channel",
+        as: "subscribers",
+      },
+    },
+    {
+      $lookup: {
+        from: "likes",
+        localField: "_id",
+        foreignField: "video",
+        as: "likes",
+      },
+    },
+    {
+      $lookup:{
+        from:"users",
+        localField:"owner",
+        foreignField:"_id",
+        as: "ownerDetails"
+      }
+    },
+    {$unwind:"$ownerDetails"},
+    {
+      $addFields: {
+        subscriberCount: { $size: "$subscribers" },
+        likesCount: { $size: "$likes" },
+        ownerDetails:"$ownerDetails",
+        isLiked:{$in:[userId,"$likes.likedBy"]}
+      },
+    },
+   
+    {
+      $set: { views: { $add: ["$views", 1] } } // Increment "views" field by 1
+    },
+    {
+      $project: {
+        _id: 1,
+        videoFile: 1,
+        thumbnail: 1,
+        title: 1,
+        views: 1,
+        description: 1,
+        likesCount: 1,
+        subscriberCount: 1,
+        tags: 1,
+        ownerDetails:{
+          _id:1,
+          avatar:1,
+          username:1,
+        }
+      },
+    },
+  ]);
   console.log("req.body : ", req?.body);
   const userId = req?.user?._id;
-  
-  console.log("video",video);
+console.log(Array.isArray(video))
+  console.log("video", video[0]);
 
   if (userId) {
     const result = await User.findByIdAndUpdate(
-      { _id:userId },
+      { _id: userId },
       {
         $addToSet: {
           watchHistory: videoId,
-          recentlyWatchedVideoTags: { $each: video.tags }
+          recentlyWatchedVideoTags: { $each: video.tags },
         },
       }
     );
@@ -183,11 +234,11 @@ const getVideoById = asyncHandler(async (req, res) => {
   if (!video) {
     throw new ApiError(400, "Invalid videoId or the video does not exist");
   }
-  console.log(video);
+  console.log(video[0]);
 
   return res
     .status(200)
-    .json(new ApiResponse(200, video, "Video Fetched successfully "));
+    .json(new ApiResponse(200, video[0], "Video Fetched successfully "));
 });
 
 const updateVideo = asyncHandler(async (req, res) => {
@@ -285,7 +336,7 @@ const deleteVideo = asyncHandler(async (req, res) => {
 const togglePublishStatus = asyncHandler(async (req, res) => {
   const { videoId } = req.body;
   const video = await Video.findById(videoId);
-  console.log(video)
+  console.log(video);
   const isOwner = video.isOwner(req?.user._id);
 
   if (!isOwner) {

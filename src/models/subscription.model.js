@@ -5,7 +5,7 @@ subscriber:{
     type: mongoose.Schema.Types.ObjectId,
     ref: "Users"
 },
-channels: {
+channel: {
 
     type: mongoose.Schema.Types.ObjectId,
     ref: "User"

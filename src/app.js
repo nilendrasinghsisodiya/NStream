@@ -24,14 +24,7 @@ app.use(express.urlencoded({
 }));
 app.use(express.static("public"));
 app.use(cookieParser())
-app.use((err, req, res, next) => {
-    console.error(err.stack); // Log error to console
-  
-    res.status(err.status || 500).json({
-      success: false,
-      message: err.message || "Internal Server Error"
-    });
-  });
+
 
 
 
@@ -42,10 +35,9 @@ import likeRouter from "./routes/like.routes.js"
 import videoRouter from "./routes/video.routes.js"
 import playlistRouter from "./routes/playlist.routes.js"
 import tweetRouter from "./routes/tweet.routes.js"
-import healthcheckRouter from "./routes/healthcheck.routes.js"
 import commentRouter from "./routes/comment.routes.js"
 import dashboardRouter from "./routes/dashboard.routes.js"
-
+import healthcheckRouter from "./routes/healthCheck.routes.js"
 
 // routes declaration
 
@@ -61,14 +53,25 @@ app.use("/api/v1/playlist",playlistRouter)
 app.use("/api/v1/comment",commentRouter)
 
 app.use("/api/v1/dashboard",dashboardRouter)
+app.use("/healthCheck",healthcheckRouter)
 
-app.use("/api/v1/healthcheck",healthcheckRouter)
 
 app.use("/api/v1/tweet",tweetRouter)
 app.use(express.static(path.join(__dirname,"dist")));
-app.get("*",(req,res)=>{
-    res.sendFile(path.join(__dirname,  "dist", "index.html"))
-})
+
+
+app.use((err, req, res, next) => {
+    console.error(err.stack); // Log error to console
+  
+    res.status(err.status || 500).json({
+      success: false,
+      message: err.message || "Internal Server Error"
+    });
+  });
+// app.get("*",(req,res)=>{
+//     res.sendFile(path.join(__dirname,  "dist", "index.html"))
+// })
+
 
 
 export {app}

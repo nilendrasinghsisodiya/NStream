@@ -8,6 +8,7 @@ import {
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
 import mongoose, { isValidObjectId } from "mongoose";
+import { Subscription } from "../models/subscription.model.js";
 
 const registerUser = asyncHandler(async (req, res) => {
   // get user details
@@ -23,14 +24,14 @@ const registerUser = asyncHandler(async (req, res) => {
   // return res
 
   const { email, password } = req.body;
-  console.log("email: ", email);
+  console.log("email: ", email, "password", password);
 
   if ([email, password].some((field) => field?.trim() === "")) {
     throw new ApiError(400, "some fields are empty");
   }
 
   const existedUser = await User.findOne({
-    $or: [{ email }],
+    email: email,
   });
 
   if (existedUser) {
@@ -42,6 +43,7 @@ const registerUser = asyncHandler(async (req, res) => {
   const user = await User.create({
     email,
     password,
+    username: email + Date.now(),
   });
 
   const userExist = await User.findById(user._id).select(
@@ -94,9 +96,9 @@ const loginUser = asyncHandler(async (req, res) => {
     throw new ApiError(400, "username and email is required");
   }
 
-  if (email || username) {
+  if (email) {
     let userExist = await User.findOne({
-      $or: [{ username }, { email }],
+      email: email,
     });
     if (userExist) {
       const validPassword = await userExist.isPasswordCorrect(password);
@@ -120,10 +122,8 @@ const loginUser = asyncHandler(async (req, res) => {
           .json(
             new ApiResponse(
               200,
-              {
-                loggedInUser,
-                accessToken,
-              },
+              { accessToken: accessToken, user: loggedInUser },
+
               "User loggedIN successfully "
             )
           );
@@ -202,7 +202,6 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
           200,
           {
             accessToken: accessToken,
-            refreshToken: newRefreshToken,
           },
           "Access token refresh"
         )
@@ -255,14 +254,14 @@ const createUser = asyncHandler(async (req, res) => {
       fullname: fullname,
     },
     { new: true }
-  );
+  ).select("-password -refreshToken -avatarPublicId -coverImagePublicId");
 
   if (!user) {
     throw new ApiError("failed to create user");
   }
 
   return res
-    .stats(200)
+    .status(200)
     .json(new ApiResponse(200, user, "user created successfully"));
 });
 
@@ -301,7 +300,7 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
   if (description) fields.description;
   const user = await User.findByIdAndUpdate(req.user?._id, fields, {
     new: true,
-  }).select("--password");
+  }).select("-password -refreshToken -avatarPublicId -coverImagePublicId");
 
   return res
     .status(200)
@@ -328,7 +327,7 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
       },
     },
     { new: true }
-  ).select("-password,-refreshToken");
+  ).select("-password -refreshToken -avatarPublicId -coverImagePublicId");
   const deleteResult = await deleteFromCloudinary(oldPublicId);
   console.log("old avatar deleted successfully : ", deleteResult);
 
@@ -357,7 +356,7 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
       },
     },
     { new: true }
-  ).select("-password,-refreshToken");
+  ).select("-password -refreshToken -avatarPublicId -coverImagePublicId");
 
   const deleteResult = await deleteFromCloudinary(oldPublicId);
   console.log("old coverimage deleted : ", deleteResult);
@@ -442,6 +441,7 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
           thumbnail: 1,
           views: 1,
           duration: 1,
+          videoFile: 1,
         },
       },
     },
@@ -614,6 +614,40 @@ const getUserTweets = asyncHandler(async (req, res) => {
     );
 });
 
+const toggleSubscribe = asyncHandler(async (req, res) => {
+  const { targetId } = req.body;
+  const userId = req?.user._id;
+  const message = "";
+  if (!targetId || !userId) {
+    throw new ApiError(400, "fields may be missing");
+  }
+  const isSubscribed = await Subscription.findOne({
+    subscriber: userId,
+    channel: targetId,
+  });
+  if (isSubscribed) {
+    const unSubscribe = await Subscription.findByIdAndDelete(isSubscribed._id);
+    if (!unSubscribe) {
+      throw new ApiError(500, "failed to unsubscribe, please try later");
+    }
+    message ="unsubscribed successfully";
+  } else {
+    const subscribe = await Subscription.create({
+      channel: targetId,
+      subscriber: userId,
+    });
+    if (!subscribe) {
+      throw new ApiError(500, "failed to subscribe, please try later");
+    }
+    message="channel subscribed scessfully";
+  }
+  const subs = await Subscription.find({ channel: targetId });
+  const subsCount = subs.length;
+  return res
+    .status(200)
+    .josn(new ApiResponse(200, { subscribersCount: subsCount }, message));
+});
+
 export {
   registerUser,
   loginUser,
@@ -628,5 +662,6 @@ export {
   updateAccountDetails,
   getUserPlaylists,
   getUserTweets,
-  createUser
+  createUser,
+  toggleSubscribe
 };

@@ -5,17 +5,25 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 /**
- * 
+ *
  */
 const getUserRecommendation = asyncHandler(async (req, res) => {
   const TagsArray = req.user.recentlyWatchedVideoTags;
- 
-  console.log("recentlyWatchVideoTags",TagsArray);
-  
+
+  console.log("recentlyWatchVideoTags", TagsArray);
+
   const recommendedVideos = await Video.aggregate([
     {
       $match: {
         tags: { $in: TagsArray },
+      },
+    },
+    {
+      $lookup: {
+        from: "Subscribers",
+        localField: "owner",
+        foreignField: "channel",
+        as: "subscribers",
       },
     },
     {
@@ -25,12 +33,27 @@ const getUserRecommendation = asyncHandler(async (req, res) => {
             $setIntersection: ["$tags", TagsArray],
           },
         },
+        subscriberCount: {
+          $size: "$subscribers",
+        },
       },
     },
     { $sort: { matchCount: -1 } },
+    {
+      $project: {
+        videoFilePublicId: 0,
+        thumbnailPublicId: 0,
+        tags: 0,
+        owner: {
+          refreshToken: 0,
+          password: 0,
+          avatarPublicId: 0,
+        },
+      },
+    },
   ]);
 
-  console.log("RecommendedVideos",recommendedVideos);
+  console.log("RecommendedVideos", recommendedVideos);
   return res
     .status(200)
     .json(new ApiResponse(200, recommendedVideos, "recommended videos"));
@@ -115,4 +138,59 @@ const getRelatedVideos = asyncHandler(async (req, res) => {
     );
 });
 
-export { getUserRecommendation, getRelatedVideos };
+const getPopularVideos = asyncHandler(async (req, res) => {
+  const rand = Math.floor(Math.random() * 10);
+  const popularVideos = await Video.aggregate([
+    { $sort: { views: -1 } }, // Sort by most viewed videos
+    { $limit: 10 }, // Get top 10 videos
+    {
+      $lookup: {
+        from: "subscriptions", // Join with the subscriptions collection
+        localField: "owner",
+        foreignField: "channel",
+        as: "subscribers",
+      },
+    },
+    {
+      $lookup: {
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
+        as: "ownerDetails",
+      },
+    },
+    { $unwind: "$ownerDetails" },
+    {
+      $addFields: {
+        subscriberCount: { $size: "$subscribers" }, // Correctly count subscribers
+      },
+    },
+    {
+      $project: {
+        _id: 1,
+        videoFile: 1,
+        thumbnail: 1,
+        title: 1,
+        views: 1,
+        owner: {
+          _id: "$ownerDetails._id",
+          avatar: "$ownerDetails.avatar",
+          username: "$ownerDetails.username",
+        },
+        subscriberCount: 1,
+      },
+    },
+  ]);
+  console.log(popularVideos)
+  if (!Array.isArray(popularVideos) || popularVideos.length === 0) {
+    throw new ApiError(500, "no popular video found");
+  }
+  console.log(popularVideos);
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, popularVideos, "popular videos fetched successfully")
+    );
+});
+
+export { getUserRecommendation, getRelatedVideos, getPopularVideos };

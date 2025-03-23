@@ -14,6 +14,7 @@ connectDB()
     console.log("Application ERROR : ", error)
     throw error
    })
+  
 
   app.listen(process.env.PORT || 8000, ()=>{
     console.log(`Sever listening on port: ${process.env.PORT}`)

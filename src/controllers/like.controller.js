@@ -9,10 +9,9 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
   const { videoId } = req.body;
   // check if video with this id exist of not
   const video = await Video.findById(videoId);
-
+  let message = ""
 
   if (!video) {
-    
     throw new ApiError(400, "Invalid Video ID");
   }
   const userId = req?.user._id;
@@ -26,71 +25,53 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
       likedBy: userId,
       video: video._id,
     });
-    const updatedVideo = await Video.aggregate([
-      {
-        $match: { _id: video._id },
-      },
-      {
-        $lookup: {
-          from: "likes",
-          localField: "_id",
-          foreignField: "video",
-          as: "likes",
-        },
-      },
-      {
-        $addFields: {
-          likesCount: { $size: "$likes" },
-        },
-      },
-      {
-        $project: {
-          _id: 1,
-          likesCount: 1,
-        },
-      },
-    ]);
+
     console.log(like);
     if (!like) {
       throw new ApiError(400, " Failed to like the video");
     }
-
-    return res
-      .status(200)
-      .json(
-        new ApiResponse(200, updatedVideo, "video like updated successfully")
-      );
+    message= "video liked sucessfully"
   } else {
     await Like.deleteOne({ _id: existingLike._id });
-    const updatedVideo = await Video.aggregate([
-      {
-        $match: { _id: video._id },
-      },
-      {
-        $lookup: {
-          from: "likes",
-          localField: "_id",
-          foreignField: "video",
-          as: "likes",
-        },
-      },
-      {
-        $addFields: {
-          likesCount: { $size: "$likes" },
-        },
-      },
-      {
-        $project: {
-          _id: 1,
-          likesCount: 1,
-        },
-      },
-    ]);
     console.log(updatedVideo);
-    return res
-      .status(200)
-      .json(new ApiResponse(200, updatedVideo, "video unliked successfully"));
+    message = "video disLiked sucessfully"
   }
+ const likes = await Like.countDocuments({video:videoId});
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {likeCount:likes},message));
 });
+const toggleCommentLike = asyncHandler(async (req, res) => {
+  const { targetId } = res.body;
+  const userId = res?.user._id;
+  let message = "";
+  if (!targetId) {
+    throw new ApiError("invalid or empty targetId");
+  }
+  const liked = await Like.findOne({
+    comment: targetId,
+    likedBy: userId,
+  });
+  if (!liked) {
+    const like = await Like.create({
+      comment: targetId,
+      likedBy: userId,
+    });
+    if (!like) {
+      throw new ApiError(500, "failed to like ");
+    }
+    message = "comment liked sucessfully";
+  } else {
+    const unlike = await Like.findByIdAndDelete(liked._id);
+    if (!unlike) {
+      throw new ApiError(500, "falied to unlike");
+    }
+    message = "comment unliked sucessfully";
+  }
 
-export { toggleVideoLike };
+  const likes = await Like.countDocuments({ comment: targetId });
+  return res
+    .status(200)
+    .json(new ApiResponse(200, { LikeCount: likes }, message));
+});
+export { toggleVideoLike,toggleCommentLike };

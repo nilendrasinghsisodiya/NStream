@@ -7,11 +7,12 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 const getVideoComments = asyncHandler(async (req, res) => {
   //TODO: get all comments for a video
   const { videoId } = req.body;
+  const userId = req?.user._id;
   console.log(videoId);
   const {
     page = 1,
     limit = 10,
-    sortBy = "createdAt",
+    sortBy = "created_at",
     sortType = "asc",
   } = req.query;
   if (!isValidObjectId(videoId)) {
@@ -22,11 +23,30 @@ const getVideoComments = asyncHandler(async (req, res) => {
   const sortOrder = sortType === "asc" ? 1 : -1;
   const aggregateQuery = [
     { $match: { video: new Types.ObjectId(videoId) } },
+    {$lookup:{
+      from:"likes",
+      localField:"owner",
+      foreignField:"likedBy",
+      as:"likes"
+    }},
+   { $addFields: {
+      likeCount: { $size: "$likes" },  // Count total likes
+      isLiked: userId
+        ? { 
+            $gt: [
+              { $size: { $filter: { input: "$likes", as: "like", cond: { $eq: ["$$like.likedBy", userId] } } } },
+              0
+            ]
+          }
+        : false
+    }},
     {$project: {
       _id:1,
       content:1,
       createdAt:1,
       owner:1,
+      likesCount:1,
+      isLiked:1
       }},
     { $sort: { [sortBy]: sortOrder } },
     { $skip: (pageNum - 1) * pageLimit },
@@ -134,4 +154,70 @@ const deleteComment = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, deleteRes, "comment deleted successfully"));
 });
 
-export { getVideoComments, addComment, updateComment, deleteComment };
+const getReplies = asyncHandler(async(req,res)=>{
+  const { commentId } = req.body;
+  const userId = req?.user._id;
+  console.log(commentId);
+  const {
+    page = 1,
+    limit = 10,
+  } = req.query;
+  if (!isValidObjectId(commentId)) {
+    throw new ApiError(400, "invalid videoId");
+  }
+  const pageNum = Number(page);
+  const pageLimit = Number(limit);
+ 
+  const aggregateQuery = [
+    { $match: { comment: new Types.ObjectId(commentId) } },
+    {$lookup:{
+      from:"likes",
+      localField:"owner",
+      foreignField:"likedBy",
+      as:"likes"
+    }},
+   { $addFields: {
+      likeCount: { $size: "$likes" },  // Count total likes
+      isLiked: userId
+        ? { 
+            $gt: [
+              { $size: { $filter: { input: "$likes", as: "like", cond: { $eq: ["$$like.likedBy", userId] } } } },
+              0
+            ]
+          }
+        : false
+    }},
+    {$project: {
+      _id:1,
+      content:1,
+      createdAt:1,
+      owner:1,
+      likesCount:1,
+      isLiked:1
+      }},
+    { $skip: (pageNum - 1) * pageLimit },
+    { $limit: pageLimit },
+    
+  ];
+  const options = {
+    page: pageNum,
+    limit: pageLimit,
+    customLabels: {
+      docs: "repliess",
+      totalDocs: "total repliess",
+      totalPages: "total pages",
+      page: "current page",
+    },
+  };
+  const replies= await Comment.aggregatePaginate(aggregateQuery, options);
+  if (!replies) {
+    throw new ApiError(404, "failed to find comments or no comments found");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, replies, "commnets fetched successfully"));
+
+});
+
+export { getVideoComments, addComment, updateComment, deleteComment, getReplies };

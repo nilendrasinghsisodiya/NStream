@@ -36,13 +36,13 @@ export const createUserValidator = [
     .isString()
     .trim()
     .notEmpty()
-    .withMessage("password cant be empty")
+    .withMessage("description cant be empty")
     .escape(),
   body("fullname")
     .isString()
     .trim()
     .notEmpty()
-    .withMessage("password cant be empty")
+    .withMessage("fullname cant be empty")
     .escape(),
 
   (req, res, next) => {
