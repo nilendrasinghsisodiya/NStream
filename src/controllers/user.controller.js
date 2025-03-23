@@ -43,7 +43,7 @@ const registerUser = asyncHandler(async (req, res) => {
   const user = await User.create({
     email,
     password,
-    username: email + Date.now(),
+    username:email.replace(/@.*$/, "")+ Date.now(),
   });
 
   const userExist = await User.findById(user._id).select(
