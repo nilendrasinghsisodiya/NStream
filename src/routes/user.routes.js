@@ -14,12 +14,12 @@ import {
   getUserPlaylists,
   getUserTweets,
   createUser,
-  toogleSubscribe
+  toggleSubscribe
 } from "../controllers/user.controller.js";
 
 import { upload } from "../middlewares/multer.middleware.js";
 import { verifyJwt } from "../middlewares/auth.middleware.js";
-import { getUserRecommendation } from "../controllers/recommendation.controller.js";
+import { getUserRecommendation,getSubscribedVideos } from "../controllers/recommendation.controller.js";
 import { createUserValidator, loginValidator } from "../validation.js";
 const router = Router();
 
@@ -52,7 +52,7 @@ router
 
 router
   .route("cover-image")
-  .patch(verifyJwt, upload.single("coverImage"), updateUserCoverImage);
+  .patch(verifyJwt, upload.single("coverImage"),updateUserCoverImage);
 
 router.route("/channel").get(getUserChannelProfile);
 
@@ -61,6 +61,7 @@ router.route("/history").get(verifyJwt, getUserWatchHistory);
 router.route("/playlists").get(getUserPlaylists);
 router.route("/recommendations").get(verifyJwt, getUserRecommendation);
 router.route("/tweets").get(getUserTweets);
-router.route("/subscribe").post(verifyJwt,toogleSubscribe);
+router.route("/subscribe").post(verifyJwt,toggleSubscribe);
+router.route("/subscribedVideos").get(getSubscribedVideos);
 
 export default router;

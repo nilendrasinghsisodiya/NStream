@@ -6,7 +6,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 
 const createPlaylist = asyncHandler(async (req, res) => {
   const { name, description } = req.body;
-  const userId = req?.user._id;
+  const userId = req?.user?._id;
   if (!userId) {
     throw new ApiError(401, "Unauthorized Access");
   }
@@ -50,7 +50,7 @@ const getPlaylistById = asyncHandler(async (req, res) => {
 });
 
 const addVideoToPlaylist = asyncHandler(async (req, res) => {
-  const userId = req?.user._id;
+  const userId = req?.user?._id;
   if (!userId) {
     throw new ApiError(401, "unauthorized access");
   }
@@ -106,7 +106,7 @@ const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
   if (!isValidObjectId(playlistId) || !isValidObjectId(videoId)) {
     throw new ApiError(400, "invalid playlist or video id");
   }
-  if (!req?.user._id) {
+  if (!req?.user?._id) {
     throw new ApiError(
       400,
       "you need to be logged in to remove a video from a playlist"
@@ -150,7 +150,7 @@ const deletePlaylist = asyncHandler(async (req, res) => {
   if (!isValidObjectId(playlistId)) {
     throw new ApiError(400, "invalid playlist id");
   }
-  const userId = req?.user._id;
+  const userId = req?.user?._id;
   if (!userId) {
     throw new ApiError(401, "Unauthorized Access");
   }
@@ -174,7 +174,7 @@ const updatePlaylist = asyncHandler(async (req, res) => {
   const { playlistId } = req.body;
   const { name, description } = req.body;
   //TODO: update playlist
-  const userId = req?.user._id;
+  const userId = req?.user?._id;
   if (!userId) {
     throw new ApiError(401, "Unauthorized Access");
   }

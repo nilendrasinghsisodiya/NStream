@@ -23,15 +23,15 @@ const registerUser = asyncHandler(async (req, res) => {
   // check for user creation
   // return res
 
-  const { email, password } = req.body;
+  const { email, password,username } = req.body;
   console.log("email: ", email, "password", password);
 
-  if ([email, password].some((field) => field?.trim() === "")) {
+  if ([email, password,username].some((field) => field?.trim() === "")) {
     throw new ApiError(400, "some fields are empty");
   }
 
   const existedUser = await User.findOne({
-    email: email,
+    $or:[{email},{username}]
   });
 
   if (existedUser) {
@@ -43,7 +43,7 @@ const registerUser = asyncHandler(async (req, res) => {
   const user = await User.create({
     email,
     password,
-    username:email.replace(/@.*$/, "")+ Date.now(),
+    username,
   });
 
   const userExist = await User.findById(user._id).select(
@@ -80,20 +80,12 @@ const generateAccessAndRefreshTokens = async (userId) => {
 };
 
 const loginUser = asyncHandler(async (req, res) => {
-  // get data form req -> data
-  // username and email get any one
-  // find the user
-  // if user validate password
-  // if not user throw error
-  // if password matches login user
-  // if password does not matches then throw error
-  // send cookie and send response
-  console.log(req.body);
 
-  const { email, username, password } = req.body;
 
-  if (!email && !username) {
-    throw new ApiError(400, "username and email is required");
+  const { email, password } = req.body;
+
+  if (!email ) {
+    throw new ApiError(400, "email is required");
   }
 
   if (email) {
@@ -107,14 +99,18 @@ const loginUser = asyncHandler(async (req, res) => {
           await generateAccessAndRefreshTokens(userExist._id);
 
         const loggedInUser = await User.findById(userExist._id).select(
-          "-password -refreshToken"
+          "-password -refreshToken -avatarPublicId -coverImagePublicId"
         );
 
         const options = {
           httpOnly: true,
           secure: true,
+          sameSite:"None"
         };
-
+       
+     const result = {...loggedInUser._doc,accessToken:accessToken}
+    
+   
         return res
           .status(200)
           .cookie("accessToken", accessToken, options)
@@ -122,7 +118,8 @@ const loginUser = asyncHandler(async (req, res) => {
           .json(
             new ApiResponse(
               200,
-              { accessToken: accessToken, user: loggedInUser },
+              result
+              ,
 
               "User loggedIN successfully "
             )
@@ -152,6 +149,7 @@ const logoutUser = asyncHandler(async (req, res) => {
   const options = {
     httpOnly: true,
     secure: true,
+    sameSite:"None"
   };
 
   console.log(UserToLogout);
@@ -168,7 +166,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
     const incomingRefreshToken =
       req.cookies.refreshToken || req.body.refreshToken;
     if (!incomingRefreshToken) {
-      throw new ApiError(401, "unauthorized request");
+      throw new ApiError(401, "unauthorized request no valid refresh token found");
     }
     const decodedToken = jwt.verify(
       incomingRefreshToken,
@@ -188,6 +186,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
     const options = {
       httpOnly: true,
       secure: true,
+      sameSite:"None"
     };
 
     const { accessToken, newRefreshToken } =
@@ -216,7 +215,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 });
 
 const createUser = asyncHandler(async (req, res) => {
-  const { fullname, description, username } = req.body;
+  const { fullname, description } = req.body;
   const userId = req.user._id;
   const avatarLocalPath = req.files?.avatar[0]?.path;
   console.log(avatarLocalPath);
@@ -245,7 +244,7 @@ const createUser = asyncHandler(async (req, res) => {
   const user = await User.findByIdAndUpdate(
     userId,
     {
-      username: username,
+    
       avatar: avatar.url,
       avatarPublicId: avatar.public_id,
       coverImage: coverImage?.url,
@@ -371,8 +370,7 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
 
   console.log(req.query);
   console.log(username, userId);
-
-  if (!isValidObjectId(userId) && (!username || username.trim().length === 0)) {
+  if (!isValidObjectId(userId) && ( !username.trim())) {
     throw new ApiError(400, "Username or valid User ID is required");
   }
   const fields = {};
@@ -387,6 +385,12 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
     {
       $match: { ...fields },
     },
+    {$lookup:{
+      from:"videos",
+      localField:"_id",
+      foreignField:"owner",
+      as:"videos"
+    }},
     {
       $lookup: {
         from: "subscriptions",
@@ -404,16 +408,8 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
       },
     },
     {
-      $lookup: {
-        from: "videos",
-        localField: "_id",
-        foreignField: "owner",
-        as: "videos",
-      },
-    },
-    {
       $addFields: {
-        subscribersCount: {
+       subscriberCount: {
           $size: "$subscribers",
         },
         channelsSubscribedToCount: {
@@ -428,21 +424,15 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
       $project: {
         fullname: 1,
         username: 1,
-        subscribersCount: 1,
+       subscriberCount: 1,
         channelsSubscribedToCount: 1,
         isSubscribed: 1,
         avatar: 1,
+        videos:"$videos._id",
+        description:1,
         coverImage: 1,
         email: 1,
         createdAt: 1,
-        videos: {
-          _id: 1,
-          title: 1,
-          thumbnail: 1,
-          views: 1,
-          duration: 1,
-          videoFile: 1,
-        },
       },
     },
   ]);
@@ -616,36 +606,27 @@ const getUserTweets = asyncHandler(async (req, res) => {
 
 const toggleSubscribe = asyncHandler(async (req, res) => {
   const { targetId } = req.body;
-  const userId = req?.user._id;
-  const message = "";
+  const userId = req?.user?._id;
+  let message = "";
+
   if (!targetId || !userId) {
-    throw new ApiError(400, "fields may be missing");
+    throw new ApiError(400, "Fields may be missing");
   }
-  const isSubscribed = await Subscription.findOne({
-    subscriber: userId,
-    channel: targetId,
-  });
+
+  const isSubscribed = await Subscription.findOne({ subscriber: userId, channel: targetId });
+
   if (isSubscribed) {
-    const unSubscribe = await Subscription.findByIdAndDelete(isSubscribed._id);
-    if (!unSubscribe) {
-      throw new ApiError(500, "failed to unsubscribe, please try later");
-    }
-    message ="unsubscribed successfully";
+    await Subscription.findByIdAndDelete(isSubscribed._id);
+    message = "Unsubscribed successfully";
   } else {
-    const subscribe = await Subscription.create({
-      channel: targetId,
-      subscriber: userId,
-    });
-    if (!subscribe) {
-      throw new ApiError(500, "failed to subscribe, please try later");
-    }
-    message="channel subscribed scessfully";
+    await Subscription.create({ channel: targetId, subscriber: userId });
+    message = "Channel subscribed successfully";
   }
-  const subs = await Subscription.find({ channel: targetId });
-  const subsCount = subs.length;
-  return res
-    .status(200)
-    .josn(new ApiResponse(200, { subscribersCount: subsCount }, message));
+
+  // Get updated subscriber count separately (fast, but may have slight delays)
+  const subsCount = await Subscription.countDocuments({ channel: targetId });
+
+  return res.status(200).json(new ApiResponse(200, {subscriberCount: subsCount }, message));
 });
 
 export {

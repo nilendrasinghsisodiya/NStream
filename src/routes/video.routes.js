@@ -10,7 +10,7 @@ import {
 import { verifyJwt } from "../middlewares/auth.middleware.js";
 import { upload } from "../middlewares/multer.middleware.js";
 import { getVideoComments } from "../controllers/comment.controller.js";
-import { getRelatedVideos,getPopularVideos } from "../controllers/recommendation.controller.js";
+import { getRelatedVideos,getPopularVideos, getSubscribedVideos } from "../controllers/recommendation.controller.js";
 
 const router = Router();
 
@@ -33,15 +33,16 @@ router
 
   router.route('/search').get(searchVideos);
   
-  router.route("/comments").get(getVideoComments);
   
   router
   .route("/update/")
   .patch(verifyJwt,upload.single("thumbnail"), updateVideo);
   
   router.route("/toggle/publish").patch(verifyJwt,togglePublishStatus);
-  router.route("/").get(getVideoById).delete(verifyJwt,deleteVideo);
+  router.route("/").get(verifyJwt,getVideoById).delete(verifyJwt,deleteVideo);
   router.route("/related").get(getRelatedVideos);
   router.route("/popular").get(getPopularVideos);
+  router.route("/comments").get(getVideoComments);
+
 
 export default router;

@@ -4,17 +4,18 @@ import {
   addComment,
   deleteComment,
   updateComment,
-  getReplies
+  getReplies,
+  addReply,
 } from "../controllers/comment.controller.js";
-import { toggleCommentLike } from "../controllers/like.controller.js";
 
 const router = Router();
 
 router
   .route("/")
-  .get(getReplies)
   .post(verifyJwt, addComment)
   .delete(verifyJwt, deleteComment)
   .patch(verifyJwt, updateComment);
+
+router.route("/reply").post(verifyJwt,addReply).get(verifyJwt,getReplies);
 
 export default router;

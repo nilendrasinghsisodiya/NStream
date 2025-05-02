@@ -27,6 +27,15 @@ const getUserRecommendation = asyncHandler(async (req, res) => {
       },
     },
     {
+      $lookup: {
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
+        as: "ownerDetails",
+      },
+    },
+    { $unwind: "$ownerDetails" },
+    {
       $addFields: {
         matchCount: {
           $size: {
@@ -41,14 +50,18 @@ const getUserRecommendation = asyncHandler(async (req, res) => {
     { $sort: { matchCount: -1 } },
     {
       $project: {
-        videoFilePublicId: 0,
-        thumbnailPublicId: 0,
-        tags: 0,
+        _id: 1,
+        videoFile: 1,
+        thumbnail: 1,
+        title: 1,
+        views: 1,
         owner: {
-          refreshToken: 0,
-          password: 0,
-          avatarPublicId: 0,
+          _id: "$ownerDetails._id",
+          avatar: "$ownerDetails.avatar",
+          username: "$ownerDetails.username",
+          subscriberCount: "$subscriberCount"
         },
+        
       },
     },
   ]);
@@ -69,19 +82,9 @@ const getRelatedVideos = asyncHandler(async (req, res) => {
   }
   const video = await Video.findById(videoId);
 
-  // can be done with video.find but is less fesiable and can be more customized
-  // can add a title matching system but would need to design it first
-  //possible steps
-  // 1. split the title by space
-  // 2. to be implemented {remove comman words such what to  and who , others
-  // 3. maybe a llm can be used
-  // 4. match by those remaining words using regex
-  // 5. should be case insesitive}
-  // 6. after that we should do tag based matching which is straight forward and assign weights to videos with more tags matched
-
   const tags = Array.isArray(video.tags) ? video.tags : [];
   console.log(video);
-  const aggregationQuerry = [
+  const aggregationQuery = Video.aggregate([
     {
       $match: {
         _id: { $ne: video._id }, // Exclude the current video
@@ -110,22 +113,19 @@ const getRelatedVideos = asyncHandler(async (req, res) => {
         tagMatchCount: 1, // Include the tag match count for sorting purposes
       },
     },
-    { $skip: (pageNum - 1) * pageLimit },
-    { $limit: pageLimit },
-  ];
+  ]);
 
   const options = {
     page: pageNum,
     limit: pageLimit,
     customLabels: {
-      docs: "related videos",
-      totalDocs: "total related videos",
-      totalPages: "total pages",
-      page: "current page",
+      docs: "relatedVideos",
+      totalDocs: "totalVideos",
+      page: "currentPage",
     },
   };
   const relatedVideos = await Video.aggregatePaginate(
-    aggregationQuerry,
+    aggregationQuery,
     options
   );
   if (!relatedVideos) {
@@ -140,9 +140,9 @@ const getRelatedVideos = asyncHandler(async (req, res) => {
 
 const getPopularVideos = asyncHandler(async (req, res) => {
   const rand = Math.floor(Math.random() * 10);
-  const popularVideos = await Video.aggregate([
-    { $sort: { views: -1 } }, // Sort by most viewed videos
-    { $limit: 10 }, // Get top 10 videos
+  const {limit,page} = req.query;
+  const popularVideosQuery =  Video.aggregate([
+    { $sort: { views: -1 } }, // Sort by most viewed videos // Get top 10 videos
     {
       $lookup: {
         from: "subscriptions", // Join with the subscriptions collection
@@ -176,13 +176,24 @@ const getPopularVideos = asyncHandler(async (req, res) => {
           _id: "$ownerDetails._id",
           avatar: "$ownerDetails.avatar",
           username: "$ownerDetails.username",
+          subscriberCount:"$subscriberCount"
         },
-        subscriberCount: 1,
       },
     },
   ]);
-  console.log(popularVideos)
-  if (!Array.isArray(popularVideos) || popularVideos.length === 0) {
+  const options = {
+    limit:Number(limit),
+    page:Number(page),
+    customLabels:{
+      totalDocs:"totalVideos",
+      page:"currentPage",
+      docs:"popularVideos",
+
+    }
+  }
+  const popularVideos= await Video.aggregatePaginate(popularVideosQuery,options);
+  console.log(popularVideos);
+  if (popularVideos.totalDocs ===0) {
     throw new ApiError(500, "no popular video found");
   }
   console.log(popularVideos);
@@ -193,4 +204,77 @@ const getPopularVideos = asyncHandler(async (req, res) => {
     );
 });
 
-export { getUserRecommendation, getRelatedVideos, getPopularVideos };
+const getSubscribedVideos = asyncHandler(async (req, res) => {
+  const userId = req.user?.id;
+  const { limit = 10, page = 1 } = req.query;
+  const pageNum = Number(page);
+  const limitTo = Number(limit);
+  if (!userId) {
+    throw new ApiError(400, "no userId for subscribed video");
+  }
+  const videosQuery = User.aggregate([
+    { $match: { _id: userId } },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "subscriber",
+        as: "subscribedTo",
+      },
+    },
+    { $unwind: "$subscribedTo" },
+    {
+      $lookup: {
+        from: "videos",
+        localField: "$subscribedTo._id",
+        foreignField: "owner",
+        as: "subscribedToVideos",
+      },
+    },
+    { $unwind: "$subscribedTovideos" },
+    {$lookup:{
+      from:"User",
+      localField:"$subscribedToVideo.owner",
+      foreignField:"owner",
+      as:"subscribedToVideosOwner"
+    }},
+    {$unwind:"$subscribedToVideosOwner"},
+
+    {
+      $project: {
+        _id: 1,
+        videos: {
+          _id: "$subscribedToVideos._id",
+          videoFile: "$subscribedToVideos.videoFile",
+          thumbnail: "$subscribedToVideos.videoFIle",
+          title:"$subscribedToVideos.title",
+          owner:{
+              _id:"$subscribedToVideosOwner._id",
+              username:"$subscribedToVideosOwner.username",
+              avatar:"$subscribedToVideosOwner.avatar"
+          }
+        },
+      },
+    },
+    { $sort: { "$subscribedToVideos.createdAt": 1 } },
+  ]);
+  const options={
+    limit:limitTo,
+    page:pageNum,
+    customLabels:{
+      page:'currentPage',
+      totalDocs:"totalVidoes",
+      docs:"recommendedVideos"
+    }
+  }
+  
+const videos = await Video.aggregatePaginate(videosQuery,options);
+  console.log("videos",videos);
+  if(videos.length === 0 ){
+    throw new ApiError(500,"no subscribed to videos");
+  }
+
+  
+});
+
+export { getUserRecommendation, getRelatedVideos, getPopularVideos,getSubscribedVideos };

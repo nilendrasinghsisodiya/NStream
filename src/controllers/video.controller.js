@@ -34,12 +34,11 @@ const searchVideos = asyncHandler(async (req, res) => {
     }
     const sortObj = sortBy ? { [sortBy]: sortOrder } : {}; // Default to no sorting
 
-    const aggregateQuery = [
+    const aggregateQuery = Video.aggregate([
       { $match: filter }, // Apply the filter
       { $sort: sortObj }, // Apply sorting
-      { $skip: (pageNum - 1) * pageLimit }, // Pagination: Skip based on page number
-      { $limit: pageLimit }, // Pagination: Limit based on page size
-    ];
+       // Pagination: Limit based on page size
+    ]);
 
     // Pagination options
     const options = {
@@ -147,12 +146,15 @@ const publishAVideo = asyncHandler(async (req, res) => {
 
 const getVideoById = asyncHandler(async (req, res) => {
   const { videoId } = req.query;
+  console.log("qparams",req.query);
   console.log("videoId", videoId);
+  const userId = req?.user?._id;
 
   const isValidId = isValidObjectId(videoId);
   if (!isValidId) {
     throw new ApiError(400, "invalid videoId");
   }
+  await Video.findByIdAndUpdate(videoId, { $inc: { views: 1 } });
   const video = await Video.aggregate([
     { $match: { _id: new mongoose.Types.ObjectId(videoId) } },
     {
@@ -172,25 +174,40 @@ const getVideoById = asyncHandler(async (req, res) => {
       },
     },
     {
-      $lookup:{
-        from:"users",
-        localField:"owner",
-        foreignField:"_id",
-        as: "ownerDetails"
-      }
+      $lookup: {
+        from: "users",
+        localField: "owner",
+        foreignField: "_id",
+        as: "ownerDetails",
+      },
     },
-    {$unwind:"$ownerDetails"},
+    { $unwind: "$ownerDetails" },
     {
       $addFields: {
         subscriberCount: { $size: "$subscribers" },
-        likesCount: { $size: "$likes" },
-        ownerDetails:"$ownerDetails",
-        isLiked:{$in:[userId,"$likes.likedBy"]}
+        likeCount: { $size: "$likes" },
+        ownerDetails: "$ownerDetails",
+        isLiked: userId
+          ? {
+              $gt: [
+                {
+                  $size: {
+                    $filter: {
+                      input: "$likes",
+                      as: "like",
+                      cond: { $eq: ["$$like.likedBy", userId] },
+                    },
+                  },
+                },
+                0,
+              ],
+            }
+          : false,
       },
     },
-   
+
     {
-      $set: { views: { $add: ["$views", 1] } } // Increment "views" field by 1
+      $set: { views: { $add: ["$views", 1] } }, // Increment "views" field by 1
     },
     {
       $project: {
@@ -200,20 +217,20 @@ const getVideoById = asyncHandler(async (req, res) => {
         title: 1,
         views: 1,
         description: 1,
-        likesCount: 1,
+        likeCount: 1,
         subscriberCount: 1,
         tags: 1,
-        ownerDetails:{
-          _id:1,
-          avatar:1,
-          username:1,
-        }
+        ownerDetails: {
+          _id: 1,
+          avatar: 1,
+          username: 1,
+        },
       },
     },
   ]);
   console.log("req.body : ", req?.body);
-  const userId = req?.user?._id;
-console.log(Array.isArray(video))
+
+  console.log(Array.isArray(video));
   console.log("video", video[0]);
 
   if (userId) {
@@ -222,7 +239,7 @@ console.log(Array.isArray(video))
       {
         $addToSet: {
           watchHistory: videoId,
-          recentlyWatchedVideoTags: { $each: video.tags },
+          recentlyWatchedVideoTags: { $each: video[0].tags },
         },
       }
     );
@@ -247,7 +264,7 @@ const updateVideo = asyncHandler(async (req, res) => {
   if (!video) {
     throw new ApiError(400, "Video not found");
   }
-  const isOwner = video.isOwner(req?.user._id);
+  const isOwner = video.isOwner(req?.user?._id);
   if (!isOwner) {
     throw new ApiError(400, "you have to be owner to update the video details");
   }
@@ -302,7 +319,7 @@ const deleteVideo = asyncHandler(async (req, res) => {
   if (!video) {
     throw new ApiError(400, "video does not exist");
   }
-  const isOwner = video.isOwner(req?.user._id);
+  const isOwner = video.isOwner(req?.user?._id);
   if (!isOwner) {
     throw new ApiError(400, "You have to be owner to delete a video");
   }
@@ -337,7 +354,7 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
   const { videoId } = req.body;
   const video = await Video.findById(videoId);
   console.log(video);
-  const isOwner = video.isOwner(req?.user._id);
+  const isOwner = video.isOwner(req?.user?._id);
 
   if (!isOwner) {
     throw new ApiError(

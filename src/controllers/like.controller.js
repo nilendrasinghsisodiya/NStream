@@ -4,6 +4,7 @@ import { Like } from "../models/like.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
+import mongoose from "mongoose";
 
 const toggleVideoLike = asyncHandler(async (req, res) => {
   const { videoId } = req.body;
@@ -14,7 +15,7 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
   if (!video) {
     throw new ApiError(400, "Invalid Video ID");
   }
-  const userId = req?.user._id;
+  const userId = req?.user?._id;
   const existingLike = await Like.findOne({
     likedby: userId,
     videoId: video._id,
@@ -42,8 +43,10 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, {likeCount:likes},message));
 });
 const toggleCommentLike = asyncHandler(async (req, res) => {
-  const { targetId } = res.body;
-  const userId = res?.user._id;
+  const { targetId } = req.body;
+  console.log("targetId:",targetId);
+  const userId = req?.user?._id;
+  console.log("userId",userId)
   let message = "";
   if (!targetId) {
     throw new ApiError("invalid or empty targetId");
@@ -52,7 +55,17 @@ const toggleCommentLike = asyncHandler(async (req, res) => {
     comment: targetId,
     likedBy: userId,
   });
-  if (!liked) {
+  console.log("liked",liked);
+  if (liked ) {
+    const unlike = await Like.findByIdAndDelete(liked._id);
+    if (!unlike) {
+      throw new ApiError(500, "falied to unlike");
+    }
+    console.log("unlike",unlike)
+    message = "comment unliked sucessfully";
+   
+  } else {
+   
     const like = await Like.create({
       comment: targetId,
       likedBy: userId,
@@ -61,15 +74,11 @@ const toggleCommentLike = asyncHandler(async (req, res) => {
       throw new ApiError(500, "failed to like ");
     }
     message = "comment liked sucessfully";
-  } else {
-    const unlike = await Like.findByIdAndDelete(liked._id);
-    if (!unlike) {
-      throw new ApiError(500, "falied to unlike");
-    }
-    message = "comment unliked sucessfully";
+    console.log("like",like);
   }
 
-  const likes = await Like.countDocuments({ comment: targetId });
+  const likes = await Like.countDocuments({ comment:targetId });
+  console.log("likesCount",likes);
   return res
     .status(200)
     .json(new ApiResponse(200, { LikeCount: likes }, message));

@@ -1,77 +1,80 @@
-import express from "express"
-import cors from "cors"
-import cookieParser from "cookie-parser"
-import path from 'path';
-import { fileURLToPath } from 'url';
+import express from "express";
+import cors from "cors";
+import cookieParser from "cookie-parser";
+import path from "path";
+import { fileURLToPath } from "url";
+import helmet from "helmet";
+import fs from "fs"
+import https from "https"
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-
-
 const app = express();
+const key = fs.readFileSync(path.join(__dirname,"../ssl/nstream.backend-key.pem"));
+const cert = fs.readFileSync(path.join(__dirname,"../ssl/nstream.backend.pem"));
 
-app.use(cors({
-    origin: process.env.CORS_ORIGIN,
-    credentials: true
-    
-}));
+app.use(helmet());
+app.use(
+  cors({
+    origin: ["https://nstream.frontend:5173"],
+    credentials: true,
+  })
+);
+export const server = https.createServer({key,cert},app);
 
-app.use(express.json({
-    limit: "16kb"
-}))
-app.use(express.urlencoded({
-    extended:true,
-    limit: "16kb"
-}));
+app.use(
+  express.json({
+    limit: "16kb",
+  })
+);
+app.use(
+  express.urlencoded({
+    extended: true,
+    limit: "16kb",
+  })
+);
+app.use(cookieParser());
 app.use(express.static("public"));
-app.use(cookieParser())
-
-
-
-
 
 // routes import
-import userRouter from "./routes/user.routes.js"
-import likeRouter from "./routes/like.routes.js"
-import videoRouter from "./routes/video.routes.js"
-import playlistRouter from "./routes/playlist.routes.js"
-import tweetRouter from "./routes/tweet.routes.js"
-import commentRouter from "./routes/comment.routes.js"
-import dashboardRouter from "./routes/dashboard.routes.js"
-import healthcheckRouter from "./routes/healthCheck.routes.js"
+import userRouter from "./routes/user.routes.js";
+import likeRouter from "./routes/like.routes.js";
+import videoRouter from "./routes/video.routes.js";
+import playlistRouter from "./routes/playlist.routes.js";
+import tweetRouter from "./routes/tweet.routes.js";
+import commentRouter from "./routes/comment.routes.js";
+import dashboardRouter from "./routes/dashboard.routes.js";
+import healthcheckRouter from "./routes/healthCheck.routes.js";
+
 
 // routes declaration
 
-app.use("/api/v1/user",userRouter)
+app.use("/api/v1/user", userRouter);
 
-app.use("/api/v1/like/",likeRouter);
+app.use("/api/v1/like/", likeRouter);
 
+app.use("/api/v1/video", videoRouter);
 
-app.use("/api/v1/video", videoRouter)
+app.use("/api/v1/playlist", playlistRouter);
 
-app.use("/api/v1/playlist",playlistRouter)
+app.use("/api/v1/comment", commentRouter);
 
-app.use("/api/v1/comment",commentRouter)
+app.use("/api/v1/dashboard", dashboardRouter);
+app.use("/healthCheck", healthcheckRouter);
 
-app.use("/api/v1/dashboard",dashboardRouter)
-app.use("/healthCheck",healthcheckRouter)
-
-
-app.use("/api/v1/tweet",tweetRouter)
-app.use(express.static(path.join(__dirname,"dist")));
-
+app.use("/api/v1/tweet", tweetRouter);
+app.use(express.static(path.join(__dirname, "dist")));
 
 app.use((err, req, res, next) => {
-    console.error(err.stack); // Log error to console
-  
-    res.status(err.status || 500).json({
-      success: false,
-      message: err.message || "Internal Server Error"
-    });
+  console.error(err.stack); // Log error to console
+
+  res.status(err.statusCode || 500).json({
+    success: false,
+    status:err.statusCode,
+    message: err.message || "Internal Server Error",
   });
+});
 // app.get("*",(req,res)=>{
 //     res.sendFile(path.join(__dirname,  "dist", "index.html"))
 // })
 
-
-
-export {app}
+export { app };

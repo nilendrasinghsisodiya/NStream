@@ -117,4 +117,6 @@ public/temp/*
 .yarn/install-state.gz
 .pnp.*
 
+ssl/*
+public/*
 # End of https://mrkandreev.name/snippets/gitignore-generator/#Node

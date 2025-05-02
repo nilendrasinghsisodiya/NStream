@@ -1,4 +1,4 @@
-import mongoose, { isValidObjectId ,Types} from "mongoose";
+import mongoose, { isValidObjectId, Types } from "mongoose";
 import { Comment } from "../models/comment.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
@@ -6,78 +6,104 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 
 const getVideoComments = asyncHandler(async (req, res) => {
   //TODO: get all comments for a video
-  const { videoId } = req.body;
-  const userId = req?.user._id;
-  console.log(videoId);
+  const { videoId } = req.query;
+  const userId = req?.user?._id;
   const {
     page = 1,
     limit = 10,
-    sortBy = "created_at",
+    sortBy = "createdAt",
     sortType = "asc",
   } = req.query;
+
   if (!isValidObjectId(videoId)) {
     throw new ApiError(400, "invalid videoId");
   }
+
   const pageNum = Number(page);
   const pageLimit = Number(limit);
   const sortOrder = sortType === "asc" ? 1 : -1;
-  const aggregateQuery = [
+
+  const aggregateQuery = Comment.aggregate([
     { $match: { video: new Types.ObjectId(videoId) } },
+    {
+      $lookup: {
+        from: "likes",
+        localField: "_id",
+        foreignField: "comment",
+        as: "likes",
+      },
+    },
     {$lookup:{
-      from:"likes",
+      from:"users",
       localField:"owner",
-      foreignField:"likedBy",
-      as:"likes"
+      foreignField:"_id",
+      as:"ownerDetails"
     }},
-   { $addFields: {
-      likeCount: { $size: "$likes" },  // Count total likes
-      isLiked: userId
-        ? { 
-            $gt: [
-              { $size: { $filter: { input: "$likes", as: "like", cond: { $eq: ["$$like.likedBy", userId] } } } },
-              0
-            ]
-          }
-        : false
-    }},
-    {$project: {
-      _id:1,
-      content:1,
-      createdAt:1,
-      owner:1,
-      likesCount:1,
-      isLiked:1
-      }},
+    {$unwind: "$ownerDetails"},
+    {
+      $addFields: {
+        likeCount: { $size: "$likes" },
+        isLiked: userId
+          ? {
+              $gt: [
+                {
+                  $size: {
+                    $filter: {
+                      input: "$likes",
+                      as: "like",
+                      cond: { $eq: ["$$like.likedBy", userId] },
+                    },
+                  },
+                },
+                0,
+              ],
+            }
+          : false,
+      },
+    },
+    {
+      $project: {
+        _id: 1,
+        content: 1,
+        createdAt: 1,
+        owner: 1,
+        likeCount: 1,
+        isLiked: 1,
+        owner:{
+          _id:"$ownerDetails._id",
+          avatar:"$ownerDetails.avatar",
+          username:"$ownerDetails.username"
+        }
+      },
+    },
     { $sort: { [sortBy]: sortOrder } },
-    { $skip: (pageNum - 1) * pageLimit },
-    { $limit: pageLimit },
-    
-  ];
+  ]);
+
   const options = {
     page: pageNum,
     limit: pageLimit,
     customLabels: {
       docs: "comments",
-      totalDocs: "total comments",
-      totalPages: "total pages",
-      page: "current page",
+      totalDocs: "totalComments",
+      totalPages: "totalPages",
+      page: "currentPage",
     },
   };
+
   const comments = await Comment.aggregatePaginate(aggregateQuery, options);
-  if (!comments) {
-    throw new ApiError(404, "failed to find comments or no comments found");
+
+  if (!comments || comments.comments.length === 0) {
+    throw new ApiError(404, "No comments found");
   }
 
   return res
     .status(200)
-    .json(new ApiResponse(200, comments, "commnets fetched successfully"));
+    .json(new ApiResponse(200, comments, "Comments fetched successfully"));
 });
 
 const addComment = asyncHandler(async (req, res) => {
-  // TODO: add a comment to a video
-
   const { videoId, content } = req.body;
-  const userId = req?.user._id;
+  const userId = req?.user?._id;
   if (!userId) {
     throw new ApiError(401, "Unauthorzied access");
   }
@@ -105,11 +131,11 @@ const addComment = asyncHandler(async (req, res) => {
 const updateComment = asyncHandler(async (req, res) => {
   // TODO: update a comment
   const { commentId, videoId, content } = req.body;
-  const userId = req?.user._id;
+  const userId = req?.user?._id;
   if (!commentId || !videoId || !content) {
     throw new ApiError(400, "empty cotent , commentId or videoId");
   }
-  
+
   if (!userId) {
     throw new ApiError(401, "Unauthroized access");
   }
@@ -117,8 +143,8 @@ const updateComment = asyncHandler(async (req, res) => {
     throw new ApiError(400, "invalid  comment or  video Id");
   }
   const isOwner = await Comment.findById(commentId).isOwner(userId);
-  if(!isOwner){
-    throw new ApiError(403,"unauthroized request");
+  if (!isOwner) {
+    throw new ApiError(401, "unauthroized request");
   }
   const updatedComment = await Comment.findByIdAndUpdate(
     { _id: commentId },
@@ -135,7 +161,7 @@ const updateComment = asyncHandler(async (req, res) => {
 
 const deleteComment = asyncHandler(async (req, res) => {
   // TODO: delete a comment
-  const { commentId } = req.body;
+  const { commentId } = req.query;
   const userId = req?.user?._id;
   if (!isValidObjectId(commentId) || !userId) {
     throw new ApiError(400, "Invalid comment id or unauthrized acceess");
@@ -154,51 +180,59 @@ const deleteComment = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, deleteRes, "comment deleted successfully"));
 });
 
-const getReplies = asyncHandler(async(req,res)=>{
-  const { commentId } = req.body;
-  const userId = req?.user._id;
+const getReplies = asyncHandler(async (req, res) => {
+  const { commentId } = req.query;
+  const userId = req?.user?._id;
   console.log(commentId);
-  const {
-    page = 1,
-    limit = 10,
-  } = req.query;
+  const { page = 1, limit = 10 } = req.query;
   if (!isValidObjectId(commentId)) {
     throw new ApiError(400, "invalid videoId");
   }
   const pageNum = Number(page);
   const pageLimit = Number(limit);
- 
-  const aggregateQuery = [
+
+  const aggregateQuery = Comment.aggregate([
     { $match: { comment: new Types.ObjectId(commentId) } },
-    {$lookup:{
-      from:"likes",
-      localField:"owner",
-      foreignField:"likedBy",
-      as:"likes"
-    }},
-   { $addFields: {
-      likeCount: { $size: "$likes" },  // Count total likes
-      isLiked: userId
-        ? { 
-            $gt: [
-              { $size: { $filter: { input: "$likes", as: "like", cond: { $eq: ["$$like.likedBy", userId] } } } },
-              0
-            ]
-          }
-        : false
-    }},
-    {$project: {
-      _id:1,
-      content:1,
-      createdAt:1,
-      owner:1,
-      likesCount:1,
-      isLiked:1
-      }},
-    { $skip: (pageNum - 1) * pageLimit },
-    { $limit: pageLimit },
-    
-  ];
+    {
+      $lookup: {
+        from: "likes",
+        localField: "owner",
+        foreignField: "likedBy",
+        as: "likes",
+      },
+    },
+    {
+      $addFields: {
+        likeCount: { $size: "$likes" }, // Count total likes
+        isLiked: userId
+          ? {
+              $gt: [
+                {
+                  $size: {
+                    $filter: {
+                      input: "$likes",
+                      as: "like",
+                      cond: { $eq: ["$$like.likedBy", userId] },
+                    },
+                  },
+                },
+                0,
+              ],
+            }
+          : false,
+      },
+    },
+    {
+      $project: {
+        _id: 1,
+        content: 1,
+        createdAt: 1,
+        owner: 1,
+        likeCount: 1,
+        isLiked: 1,
+      },
+    },
+  ]);
   const options = {
     page: pageNum,
     limit: pageLimit,
@@ -209,7 +243,7 @@ const getReplies = asyncHandler(async(req,res)=>{
       page: "current page",
     },
   };
-  const replies= await Comment.aggregatePaginate(aggregateQuery, options);
+  const replies = await Comment.aggregatePaginate(aggregateQuery, options);
   if (!replies) {
     throw new ApiError(404, "failed to find comments or no comments found");
   }
@@ -217,7 +251,41 @@ const getReplies = asyncHandler(async(req,res)=>{
   return res
     .status(200)
     .json(new ApiResponse(200, replies, "commnets fetched successfully"));
-
 });
+const addReply = asyncHandler(async (res,req)=>{
+  
+    const { videoId, content,commentId } = req.body;
+    const userId = req?.user?._id;
+    if (!userId) {
+      throw new ApiError(401, "Unauthorzied access");
+    }
+  
+    if (!isValidObjectId(videoId)) {
+      throw new ApiError(400, "not a Valid video Id");
+    }
+    if (!content) {
+      throw new ApiError(400, "Empty or invalid content");
+    }
+  
+    const reply = await Comment.create({
+      content: content,
+      video: videoId,
+      comment:commentId,
+      owner: userId,
+    });
+    if (!reply) {
+      throw new ApiError(500, "Failed to create a reply");
+    }
+    return res
+      .status(200)
+      .json(new ApiResponse(200, reply, "reply created successfully"));
 
-export { getVideoComments, addComment, updateComment, deleteComment, getReplies };
+})
+export {
+  getVideoComments,
+  addComment,
+  updateComment,
+  deleteComment,
+  getReplies,
+  addReply
+};

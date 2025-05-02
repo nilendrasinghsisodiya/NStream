@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { Video } from "../models/video.model.js";
+import { User} from "../models/user.model.js";
 import { Subscription } from "../models/subscription.model.js";
 import { Like } from "../models/like.model.js";
 import { ApiError } from "../utils/ApiError.js";
@@ -12,27 +13,31 @@ const getChannelStats = asyncHandler(async (req, res) => {
 
 const getChannelVideos = asyncHandler(async (req, res) => {
   // TODO: Get all the videos uploaded by the channel
-  const {page=1,limit=10, sortBy="createdAt", sortType='asc'} = req?.query;
-  const {user} = req?.user;
+  const {page=1,limit=10, sortBy="createdAt", sortType='asc',username} = req?.query;
+  
  const pageNum =Number(page);
  const pageLimit = Number(limit)
-const skip = (pageNum-1) * pageLimit;
+ const user = await User.findOne({username});
+
 const sortOrder = sortType === "asc" ? 1 : -1;
-const aggregateQuery = [
+const aggregateQuery = Video.aggregate([
   {$match:{owner: user?._id}},
   {$project:{
     _id:1,
     thumbnail:1,
-    videoFile:1,
+    createdAt:1,
     title:1,
-    views:1
+    views:1,
+    owner:{
+      _id:user?._id,
+      avatar:user?.avatar,
+      username:user?.username
+    }
     
 
   }},
   {$sort:{[sortBy]:sortOrder}},
-  {$skip:skip},
-  {$limit:pageLimit}
-];
+]);
 const options = {
   page: pageNum,
   limit: pageLimit,
