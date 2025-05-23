@@ -1,6 +1,6 @@
 import dotenv from "dotenv";
 import connectDB from "./db/connectDB.js";
-import { app, server } from "./app.js";
+import { app } from "./app.js";
 
 dotenv.config({path:"./env"})
 
@@ -10,13 +10,13 @@ console.log(process.env.CLOUNDINARY_API_KEY);
 connectDB()
 .then(()=>{
   try{
-   server.on("error",(error)=>{
+   app.on("error",(error)=>{
     console.log("Application ERROR : ", error)
     throw error
    })
   
 
-  server.listen(process.env.PORT || 8000, ()=>{
+  app.listen(process.env.PORT || 8000, ()=>{
     console.log(`Sever listening on port: ${process.env.PORT}`)
 
   })

@@ -1,4 +1,4 @@
-import mongoose, { isValidObjectId, Types } from "mongoose";
+import mongoose, { isValidObjectId, Mongoose, Types } from "mongoose";
 import { Comment } from "../models/comment.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
@@ -23,61 +23,82 @@ const getVideoComments = asyncHandler(async (req, res) => {
   const pageLimit = Number(limit);
   const sortOrder = sortType === "asc" ? 1 : -1;
 
-  const aggregateQuery = Comment.aggregate([
-    { $match: { video: new Types.ObjectId(videoId) } },
-    {
-      $lookup: {
-        from: "likes",
-        localField: "_id",
-        foreignField: "comment",
-        as: "likes",
-      },
-    },
-    {$lookup:{
-      from:"users",
-      localField:"owner",
-      foreignField:"_id",
-      as:"ownerDetails"
-    }},
-    {$unwind: "$ownerDetails"},
-    {
-      $addFields: {
-        likeCount: { $size: "$likes" },
-        isLiked: userId
-          ? {
-              $gt: [
-                {
-                  $size: {
-                    $filter: {
-                      input: "$likes",
-                      as: "like",
-                      cond: { $eq: ["$$like.likedBy", userId] },
-                    },
-                  },
-                },
-                0,
-              ],
-            }
-          : false,
-      },
-    },
-    {
-      $project: {
-        _id: 1,
-        content: 1,
-        createdAt: 1,
-        owner: 1,
-        likeCount: 1,
-        isLiked: 1,
-        owner:{
-          _id:"$ownerDetails._id",
-          avatar:"$ownerDetails.avatar",
-          username:"$ownerDetails.username"
+const userObjectId = new mongoose.Types.ObjectId(userId);
+console.log("userObjectId",userObjectId);
+const aggregateQuery = Comment.aggregate([
+  { $match: { video: new Types.ObjectId(videoId) } },
+  
+  
+  {
+    $lookup: {
+      from: "likes",
+      localField: "_id",
+      foreignField: "comment",
+      as: "likes"
+    }
+  },
+
+  
+  {
+    $lookup: {
+      from: "users",
+      localField: "owner",
+      foreignField: "_id",
+      as: "ownerDetails"
+    }
+  },
+  { $unwind: "$ownerDetails" },
+
+  
+  {
+    $addFields: {
+      likeCount: { $size: "$likes" },
+      currentUserId: userObjectId,
+      videoId:{videoId},
+      isLiked: {
+        $cond: {
+          if: {
+            $gt: [
+              {
+                $size: {
+                  $filter: {
+                    input: "$likes",
+                    as: "like",
+                    cond: {
+                      $eq: ["$$like.likedBy","$currentUserId"
+                      ] // Ensure ObjectId here
+                    }
+                  }
+                }
+              },
+              0
+            ]
+          },
+          then: true,
+          else: false
         }
-      },
-    },
-    { $sort: { [sortBy]: sortOrder } },
-  ]);
+      }
+    }
+  },
+
+  {
+    $project: {
+      _id: 1,
+      content: 1,
+      createdAt: 1,
+      likeCount: 1,
+      isLiked: 1,
+      owner: {
+        _id: "$ownerDetails._id",
+        avatar: "$ownerDetails.avatar",
+        username: "$ownerDetails.username"
+      }
+    }
+  },
+
+  { $sort: { [sortBy]: sortOrder } }
+]);
+
 
   const options = {
     page: pageNum,
@@ -203,7 +224,7 @@ const getReplies = asyncHandler(async (req, res) => {
     },
     {
       $addFields: {
-        likeCount: { $size: "$likes" }, // Count total likes
+        likeCount: { $size: "$likes" }, 
         isLiked: userId
           ? {
               $gt: [

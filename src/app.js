@@ -4,22 +4,29 @@ import cookieParser from "cookie-parser";
 import path from "path";
 import { fileURLToPath } from "url";
 import helmet from "helmet";
-import fs from "fs"
-import https from "https"
+import fs from "fs";
+import https from "https";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
-const key = fs.readFileSync(path.join(__dirname,"../ssl/nstream.backend-key.pem"));
-const cert = fs.readFileSync(path.join(__dirname,"../ssl/nstream.backend.pem"));
+const key = fs.readFileSync(
+  path.join(__dirname, "../ssl/nstream.backend-key.pem")
+);
+const cert = fs.readFileSync(
+  path.join(__dirname, "../ssl/nstream.backend.pem")
+);
 
 app.use(helmet());
+// leaving at * because of issue in development because of self signed certs
 app.use(
   cors({
-    origin: ["https://nstream.frontend:5173"],
-    credentials: true,
+   origin: 'http://localhost:5173', // ✅ Specific origin, NOT '*'
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization','optional'],
   })
 );
-export const server = https.createServer({key,cert},app);
+
 
 app.use(
   express.json({
@@ -45,7 +52,6 @@ import commentRouter from "./routes/comment.routes.js";
 import dashboardRouter from "./routes/dashboard.routes.js";
 import healthcheckRouter from "./routes/healthCheck.routes.js";
 
-
 // routes declaration
 
 app.use("/api/v1/user", userRouter);
@@ -62,6 +68,9 @@ app.use("/api/v1/dashboard", dashboardRouter);
 app.use("/healthCheck", healthcheckRouter);
 
 app.use("/api/v1/tweet", tweetRouter);
+app.get("/check", (req, res) => {
+  res.send("hello world");
+});
 app.use(express.static(path.join(__dirname, "dist")));
 
 app.use((err, req, res, next) => {
@@ -69,7 +78,7 @@ app.use((err, req, res, next) => {
 
   res.status(err.statusCode || 500).json({
     success: false,
-    status:err.statusCode,
+    status: err.statusCode,
     message: err.message || "Internal Server Error",
   });
 });

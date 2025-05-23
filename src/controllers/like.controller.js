@@ -47,7 +47,7 @@ const toggleCommentLike = asyncHandler(async (req, res) => {
   console.log("targetId:",targetId);
   const userId = req?.user?._id;
   console.log("userId",userId)
-  let message = "";
+ 
   if (!targetId) {
     throw new ApiError("invalid or empty targetId");
   }
@@ -55,32 +55,29 @@ const toggleCommentLike = asyncHandler(async (req, res) => {
     comment: targetId,
     likedBy: userId,
   });
-  console.log("liked",liked);
-  if (liked ) {
-    const unlike = await Like.findByIdAndDelete(liked._id);
-    if (!unlike) {
-      throw new ApiError(500, "falied to unlike");
-    }
-    console.log("unlike",unlike)
-    message = "comment unliked sucessfully";
-   
-  } else {
-   
-    const like = await Like.create({
-      comment: targetId,
-      likedBy: userId,
-    });
-    if (!like) {
-      throw new ApiError(500, "failed to like ");
-    }
-    message = "comment liked sucessfully";
-    console.log("like",like);
-  }
 
-  const likes = await Like.countDocuments({ comment:targetId });
-  console.log("likesCount",likes);
-  return res
-    .status(200)
-    .json(new ApiResponse(200, { LikeCount: likes }, message));
+  if (!liked){
+    const like = await Like.create({
+      comment:targetId,
+      likedBy:userId,
+
+    });
+
+    if (!like){
+      throw new ApiError(500,"failed to like the comment");
+    }
+    console.log("liked")
+    return res.status(200).json(new ApiResponse(200,{},"comment liked sucessfully"));
+  }else{
+
+    const like = await Like.deleteOne({likedBy:userId});
+    if (!like){
+      throw new ApiError(500,"failed to unlike comment");
+    }
+
+    console.log("unliked (like deleted)")
+    return res.status(200).json(new ApiResponse(200,"comment unliked sucessfully"));
+  }
+  
 });
 export { toggleVideoLike,toggleCommentLike };
