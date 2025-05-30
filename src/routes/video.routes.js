@@ -42,7 +42,7 @@ router
   router.route("/").get(verifyJwt,getVideoById).delete(verifyJwt,deleteVideo);
   router.route("/related").get(getRelatedVideos);
   router.route("/popular").get(getPopularVideos);
-  router.route("/comments").get(getVideoComments);
+  router.route("/comments").get(verifyJwt,getVideoComments);
 
 
 export default router;

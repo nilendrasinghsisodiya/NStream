@@ -7,7 +7,8 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 const getVideoComments = asyncHandler(async (req, res) => {
   //TODO: get all comments for a video
   const { videoId } = req.query;
-  const userId = req?.user?._id;
+  const userId = req?.user._id;
+  console.log("userID",userId)
   const {
     page = 1,
     limit = 10,
@@ -23,8 +24,6 @@ const getVideoComments = asyncHandler(async (req, res) => {
   const pageLimit = Number(limit);
   const sortOrder = sortType === "asc" ? 1 : -1;
 
-const userObjectId = new mongoose.Types.ObjectId(userId);
-console.log("userObjectId",userObjectId);
 const aggregateQuery = Comment.aggregate([
   { $match: { video: new Types.ObjectId(videoId) } },
   
@@ -53,7 +52,6 @@ const aggregateQuery = Comment.aggregate([
   {
     $addFields: {
       likeCount: { $size: "$likes" },
-      currentUserId: userObjectId,
       videoId:{videoId},
       isLiked: {
         $cond: {
@@ -65,8 +63,7 @@ const aggregateQuery = Comment.aggregate([
                     input: "$likes",
                     as: "like",
                     cond: {
-                      $eq: ["$$like.likedBy","$currentUserId"
-                      ] // Ensure ObjectId here
+                      $eq: ["$$like.likedBy",userId]
                     }
                   }
                 }

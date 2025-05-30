@@ -5,6 +5,7 @@ import { User } from "../models/user.model.js";
 export const verifyJwt = asyncHandler(async (req, res, next) => {
   try {
     console.log("cookie",req.cookies);
+    console.log("headers",req.headers);
     const token =
       req.cookies?.accessToken ||
       req.header("Authorization")?.replace("Bearer ", "");
@@ -33,6 +34,7 @@ export const verifyJwt = asyncHandler(async (req, res, next) => {
       throw new ApiError(401, "Invalid Access Token");
     }
     req.user = user;
+    console.log("setting user in req:", user);
     return next();
   } catch (error) {
     if (error.message === "jwt expired") {
