@@ -206,9 +206,7 @@ const getVideoById = asyncHandler(async (req, res) => {
       },
     },
 
-    {
-      $set: { views: { $add: ["$views", 1] } }, // Increment "views" field by 1
-    },
+   
     {
       $project: {
         _id: 1,

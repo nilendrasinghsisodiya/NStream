@@ -30,23 +30,63 @@ const createPlaylist = asyncHandler(async (req, res) => {
 });
 
 const getPlaylistById = asyncHandler(async (req, res) => {
-  const { playlistId } = req.query;
+  const { playlistId, page, limit = 5 } = req.query;
   //TODO: get playlist by id
+
+  const pageNum = Number(page);
+  const pageLimit = Number(limit);
   const isValidId = isValidObjectId(playlistId);
   if (!isValidId) {
     throw new ApiError(400, "not a valid playlistId");
   }
-  const playlist = await Playlist.findById(playlistId).populate({
-    path: "videos",
-    select: "_id title thumbnail duration views owner createdAt ",
-  });
+  const aggregateQuery = Playlist.aggregate([
+    {
+      $match: new mongoose.Types.ObjectId(playlistId),
+    },
+    {
+      $lookup: {
+        localField: "videos",
+        foreignField: "_id",
+        from: "videos",
+        as: "videos",
+      },
+    },
+    { $unwind: "videos" },
+    {
+      $project: {
+        _id: 1,
+        view: 1,
+        name: 1,
+        description: 1,
+        videos: {
+          _id: "$videos._id",
+          thumbnail: "$videos._thumbnail",
+          owner: "$videos.owner",
+          title: "$videos.title",
+          view: "$videos.view",
+        },
+        created_at: 1,
+      },
+    },
+    
+  ]);
+
+  const options = {
+    page: pageNum,
+    limit: pageLimit,
+    customLabels: {
+      docs: "playlistVideos",
+      totalDocs: "total playlistVideos",
+      totalPages: "total pages",
+      page: "current page",
+    },
+  };
+  const playlist = await Playlist.aggregatepaginate(aggregateQuery, options);
   console.log(playlist);
-  if (!playlist) {
-    throw new ApiError(500, "failed to find the playlist");
-  }
+
   return res
     .status(200)
-    .json(new ApiResponse(200, playlist, "playlist fetched successfully"));
+    .json(new ApiResponse(200, playlist[0], "playlist fetched successfully"));
 });
 
 const addVideoToPlaylist = asyncHandler(async (req, res) => {
