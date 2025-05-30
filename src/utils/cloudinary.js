@@ -7,7 +7,7 @@ cloudinary.config({
   secure:true,
   cloud_name: process.env.CLOUNDINARY_CLOUD_NAME,
   api_key: process.env.CLOUNDINARY_API_KEY,
-  api_secret: process.env.CLOUNDINARY_API_SECRET, // Click 'View API Keys' above to copy your API secret
+  api_secret: process.env.CLOUNDINARY_API_SECRET,
 });
 
 const uploadOnCloudinary = async (filePath, publicId) => {

@@ -60,13 +60,13 @@ userSchema.pre("save", async function (next) {
   console.log("🔹 Running pre-save hook for:", this.email);
 
   if (!this.isModified("password")) {
-    console.log("⚠️ Password not modified, skipping hashing.");
+    console.log(" Password not modified, skipping hashing.");
     return next();
   }
 
-  console.log("🔸 Password Before Hashing:", this.password);
+  console.log("Password Before Hashing:", this.password);
   this.password = await bcrypt.hash(this.password, 10);
-  console.log("✅ Hashed Password:", this.password);
+  console.log("Hashed Password:", this.password);
   
   next();
 });

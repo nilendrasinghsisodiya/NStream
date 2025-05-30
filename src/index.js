@@ -1,10 +1,16 @@
 import dotenv from "dotenv";
+import path from "path"
+import { __dirname } from "./fileUtils.js";
+
+const env_file_path =  path.resolve(__dirname,".env");
+
+console.log(env_file_path)
+dotenv.config({path:env_file_path});
 import connectDB from "./db/connectDB.js";
 import { app } from "./app.js";
 
-dotenv.config({path:"./env"})
 
-console.log(process.env.CLOUNDINARY_API_KEY);
+
 
 
 connectDB()

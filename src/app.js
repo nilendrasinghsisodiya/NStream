@@ -2,19 +2,18 @@ import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import path from "path";
-import { fileURLToPath } from "url";
 import helmet from "helmet";
 import fs from "fs";
 import https from "https";
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import { __dirname } from "./fileUtils.js";
 
 const app = express();
-const key = fs.readFileSync(
-  path.join(__dirname, "../ssl/nstream.backend-key.pem")
-);
-const cert = fs.readFileSync(
-  path.join(__dirname, "../ssl/nstream.backend.pem")
-);
+// const key = fs.readFileSync(
+//   path.join(__dirname, "../ssl/nstream.backend-key.pem")
+// );
+// const cert = fs.readFileSync(
+//   path.join(__dirname, "../ssl/nstream.backend.pem")
+// );
 
 app.use(helmet());
 // leaving at * because of issue in development because of self signed certs
