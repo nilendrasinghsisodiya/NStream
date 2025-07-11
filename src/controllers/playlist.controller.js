@@ -81,7 +81,7 @@ const getPlaylistById = asyncHandler(async (req, res) => {
       page: "current page",
     },
   };
-  const playlist = await Playlist.aggregatepaginate(aggregateQuery, options);
+  const playlist = await Playlist.aggregatePaginate(aggregateQuery, options);
   console.log(playlist);
 
   return res
@@ -94,24 +94,19 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
   if (!userId) {
     throw new ApiError(401, "unauthorized access");
   }
-  const { playlistId, videos } = req.body;
+  const { playlistId, videoIds } = req.body;
 
   const isValidPlaylistId = isValidObjectId(playlistId);
   if (!isValidPlaylistId) {
     throw new ApiError(400, "invalid Playlist id");
   }
-  if (!Array.isArray(videos) || videos.length === 0) {
+  if (!Array.isArray(videoIds) || videoIds.length === 0) {
     throw new ApiError(400, "Invalid or empty videos array");
   }
-  console.log("req.body.videos : ", videos);
+  console.log("req.body.videos : ", videoIds);
 
-  const validVideos = [];
+  const validVideos = videoIds.filter((ele)=>isValidObjectId(ele));
 
-  videos.forEach((element) => {
-    if (isValidObjectId(element)) {
-      validVideos.push(element);
-    }
-  });
   console.log("valid videos array : ", validVideos);
   const updatedPlaylist = await Playlist.findByIdAndUpdate(
     playlistId,

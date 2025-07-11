@@ -576,7 +576,7 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
         _id: 1,
         name: 1,
         description: 1,
-        cover: 1,
+        cover: "$userPlaylists.thumbnail",
       },
     },
   },
