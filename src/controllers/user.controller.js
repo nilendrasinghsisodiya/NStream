@@ -527,8 +527,7 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
   if (!user) {
     throw new ApiError(400, "invalid username");
   }
-
-  const playlists = await User.aggregate([
+const playlists = await User.aggregate([
   {
     $match: { _id: user._id },
   },
@@ -548,15 +547,21 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
   },
   {
     $lookup: {
-      from: "videos", // Assuming the playlist has video references
-      localField: "userPlaylists.videos", // 'videos' is array of ObjectId in playlist
-      foreignField: "_id",
-      as: "playlistVideos",
+      from: "videos",
+      let: { videoIds: "$userPlaylists.videos" },
+      pipeline: [
+        { $match: { $expr: { $in: ["$_id", "$$videoIds"] } } },
+        { $project: { thumbnail: 1 } },
+        { $limit: 1 }, // Pick only first video’s thumbnail
+      ],
+      as: "playlistCover",
     },
   },
   {
     $addFields: {
-      "userPlaylists.thumbnail": { $arrayElemAt: ["$playlistVideos.thumbnail", 0] },
+      "userPlaylists.cover": {
+        $arrayElemAt: ["$playlistCover.thumbnail", 0],
+      },
     },
   },
   {
@@ -576,12 +581,12 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
         _id: 1,
         name: 1,
         description: 1,
-        cover: "$userPlaylists.thumbnail",
+        cover: 1,
       },
     },
   },
-]
-)
+]);
+
   // Check if playlists are found
   if (playlists.length === 0) {
     throw new ApiError(404, "No playlists found for this user.");

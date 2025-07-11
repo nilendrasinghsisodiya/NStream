@@ -39,38 +39,51 @@ const getPlaylistById = asyncHandler(async (req, res) => {
   if (!isValidId) {
     throw new ApiError(400, "not a valid playlistId");
   }
-  const aggregateQuery = Playlist.aggregate([
-    {
-      $match: new mongoose.Types.ObjectId(playlistId),
+const aggregateQuery = Playlist.aggregate([
+  {
+    $match: {
+      _id: new mongoose.Types.ObjectId(playlistId),
     },
-    {
-      $lookup: {
-        localField: "videos",
-        foreignField: "_id",
-        from: "videos",
-        as: "videos",
-      },
+  },
+  {
+    $lookup: {
+      from: "videos",
+      localField: "videos",
+      foreignField: "_id",
+      as: "videos",
     },
-    { $unwind: "videos" },
-    {
-      $project: {
-        _id: 1,
-        view: 1,
-        name: 1,
-        description: 1,
-        videos: {
-          _id: "$videos._id",
-          thumbnail: "$videos._thumbnail",
-          owner: "$videos.owner",
-          title: "$videos.title",
-          view: "$videos.view",
+  },
+  { $unwind: "$videos" },
+  {
+    $lookup: {
+      from: "users",
+      localField: "videos.owner",
+      foreignField: "_id",
+      as: "videoOwner",
+    },
+  },
+  { $unwind: "$videoOwner" },
+  {
+    $project: {
+      _id: 1,
+      view: 1,
+      name: 1,
+      description: 1,
+      created_at: 1,
+      videos: {
+        _id: "$videos._id",
+        thumbnail: "$videos.thumbnail",
+        owner: {
+          _id: "$videoOwner._id",
+          avatar: "$videoOwner.avatar",
+          username: "$videoOwner.username",
         },
-        created_at: 1,
+        title: "$videos.title",
+        view: "$videos.view",
       },
     },
-    
-  ]);
-
+  },
+]);
   const options = {
     page: pageNum,
     limit: pageLimit,
@@ -82,11 +95,15 @@ const getPlaylistById = asyncHandler(async (req, res) => {
     },
   };
   const playlist = await Playlist.aggregatePaginate(aggregateQuery, options);
-  console.log(playlist);
+  console.log("playlists",playlist);
+  if(!Array.isArray(playlist) && playlist.length === 0){
+  throw new ApiError(404,"no videos found in the playlists");
+
+  }
 
   return res
     .status(200)
-    .json(new ApiResponse(200, playlist[0], "playlist fetched successfully"));
+    .json(new ApiResponse(200,{playlist:playlist.playlistVideos[0]}, "playlist fetched successfully"));
 });
 
 const addVideoToPlaylist = asyncHandler(async (req, res) => {
