@@ -7,7 +7,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 const getVideoComments = asyncHandler(async (req, res) => {
   //TODO: get all comments for a video
   const { videoId } = req.query;
-  const userId = req?.user._id;
+  const userId = req?.user?._id;
   console.log("userID",userId)
   const {
     page = 1,

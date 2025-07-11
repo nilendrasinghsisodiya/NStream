@@ -517,9 +517,8 @@ const getUserWatchHistory = asyncHandler(async (req, res) => {
     );
 });
 const getUserPlaylists = asyncHandler(async (req, res) => {
-  console.log(req.body);
 
-  const { username } = req.body;
+  const { username } = req.query;
 
   if (!username) {
     throw new ApiError(400, "Invalid user ID.");
@@ -530,31 +529,59 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
   }
 
   const playlists = await User.aggregate([
-    {
-      $match: { _id: user._id },
+  {
+    $match: { _id: user._id },
+  },
+  {
+    $lookup: {
+      from: "playlists",
+      localField: "_id",
+      foreignField: "owner",
+      as: "userPlaylists",
     },
-    {
-      $lookup: {
-        from: "playlists",
-        localField: "_id",
-        foreignField: "owner",
-        as: "userPlaylists",
-      },
+  },
+  {
+    $unwind: {
+      path: "$userPlaylists",
+      preserveNullAndEmptyArrays: true,
     },
-    {
-      $project: {
+  },
+  {
+    $lookup: {
+      from: "videos", // Assuming the playlist has video references
+      localField: "userPlaylists.videos", // 'videos' is array of ObjectId in playlist
+      foreignField: "_id",
+      as: "playlistVideos",
+    },
+  },
+  {
+    $addFields: {
+      "userPlaylists.thumbnail": { $arrayElemAt: ["$playlistVideos.thumbnail", 0] },
+    },
+  },
+  {
+    $group: {
+      _id: "$_id",
+      username: { $first: "$username" },
+      avatar: { $first: "$avatar" },
+      userPlaylists: { $push: "$userPlaylists" },
+    },
+  },
+  {
+    $project: {
+      _id: 1,
+      username: 1,
+      avatar: 1,
+      userPlaylists: {
         _id: 1,
-        username: 1,
-        avatar: 1,
-        userPlaylists: {
-          _id: 1,
-          name: 1,
-          description: 1,
-        },
+        name: 1,
+        description: 1,
+        cover: 1,
       },
     },
-  ]);
-
+  },
+]
+)
   // Check if playlists are found
   if (playlists.length === 0) {
     throw new ApiError(404, "No playlists found for this user.");
@@ -564,7 +591,7 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
   return res.status(200).json(
     new ApiResponse(
       200,
-      playlists[0].userPlaylists, // Return user's playlists
+      {playlists:playlists[0].userPlaylists}, // Return user's playlists
       "Playlists fetched successfully."
     )
   );
