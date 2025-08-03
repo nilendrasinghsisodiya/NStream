@@ -43,10 +43,10 @@ const aggregateQuery = Comment.aggregate([
       from: "users",
       localField: "owner",
       foreignField: "_id",
-      as: "ownerDetails"
+      as: "owner"
     }
   },
-  { $unwind: "$ownerDetails" },
+  { $unwind: {path:"$owner",preserveNullAndEmptyArrays:true} },
 
   
   {
@@ -86,9 +86,10 @@ const aggregateQuery = Comment.aggregate([
       likeCount: 1,
       isLiked: 1,
       owner: {
-        _id: "$ownerDetails._id",
-        avatar: "$ownerDetails.avatar",
-        username: "$ownerDetails.username"
+        _id: "$owner._id",
+        avatar: "$owner.avatar",
+        username: "$owner.username",
+        subscribersCount:"$owner.subscribersCount"
       }
     }
   },
@@ -110,9 +111,6 @@ const aggregateQuery = Comment.aggregate([
 
   const comments = await Comment.aggregatePaginate(aggregateQuery, options);
 
-  if (!comments || comments.comments.length === 0) {
-    throw new ApiError(404, "No comments found");
-  }
 
   return res
     .status(200)

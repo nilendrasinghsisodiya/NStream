@@ -3,7 +3,7 @@ import mongoose from "mongoose"
 const subscriptionSchema = new mongoose.Schema({
 subscriber:{
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Users"
+    ref: "User"
 },
 channel: {
 
@@ -12,5 +12,6 @@ channel: {
 
 }
 },{timestamps:true});
+subscriptionSchema.index({subscriber:1,channel:1},{unique:true});
 
 export  const Subscription = mongoose.model("subscription", subscriptionSchema);

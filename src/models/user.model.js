@@ -52,6 +52,10 @@ const userSchema = new mongoose.Schema(
      
     },
     recentlyWatchedVideoTags: [{ type: String}],
+    subscribersCount:{
+      type:Number,
+      default:0,
+    }
   },
   { timestamps: true }
 );

@@ -1,4 +1,4 @@
-import mongoose, { isValidObjectId } from "mongoose";
+import mongoose, { isValidObjectId, Mongoose } from "mongoose";
 import { Video } from "../models/video.model.js";
 import { User } from "../models/user.model.js";
 import { ApiError } from "../utils/ApiError.js";
@@ -9,6 +9,7 @@ import {
   deleteFromCloudinary,
   uploadOnCloudinary,
 } from "../utils/cloudinary.js";
+import { Subscription } from "../models/subscription.model.js";
 
 const searchVideos = asyncHandler(async (req, res) => {
   try {
@@ -37,7 +38,7 @@ const searchVideos = asyncHandler(async (req, res) => {
     const aggregateQuery = Video.aggregate([
       { $match: filter }, // Apply the filter
       { $sort: sortObj }, // Apply sorting
-       // Pagination: Limit based on page size
+      // Pagination: Limit based on page size
     ]);
 
     // Pagination options
@@ -76,7 +77,7 @@ const publishAVideo = asyncHandler(async (req, res) => {
     // setp 4: check if upload is successfull
     // step 5: create a new videoDoc
     // step 6: return res with video obj
-    const userId = req?.user;
+    const userId = req?.user?._id;
     if (!userId) {
       throw new ApiError(401, "Unauthorized Access");
     }
@@ -100,7 +101,10 @@ const publishAVideo = asyncHandler(async (req, res) => {
     if (!videoThumbnailLocalPath) {
       throw new ApiError(400, "no thumbnail provided");
     }
-    const videoUrl = await uploadOnCloudinary(videoLocalpath);
+    const videoUrl = await uploadOnCloudinary(
+      videoLocalpath,
+      `${userId}'s_vid`
+    );
     if (!videoUrl) {
       throw new ApiError(
         500,
@@ -108,7 +112,10 @@ const publishAVideo = asyncHandler(async (req, res) => {
       );
     }
 
-    const thumbnailUrl = await uploadOnCloudinary(videoThumbnailLocalPath);
+    const thumbnailUrl = await uploadOnCloudinary(
+      videoThumbnailLocalPath,
+      `${userId}'s_vid`
+    );
     if (!thumbnailUrl) {
       throw new ApiError(
         500,
@@ -140,13 +147,13 @@ const publishAVideo = asyncHandler(async (req, res) => {
   } catch (error) {
     console.log(error);
 
-    throw new ApiError(200, error.message);
+    throw new ApiError(500, error.message);
   }
 });
 
 const getVideoById = asyncHandler(async (req, res) => {
   const { videoId } = req.query;
-  console.log("qparams",req.query);
+  console.log("qparams", req.query);
   console.log("videoId", videoId);
   const userId = req?.user?._id;
 
@@ -157,14 +164,7 @@ const getVideoById = asyncHandler(async (req, res) => {
   await Video.findByIdAndUpdate(videoId, { $inc: { views: 1 } });
   const video = await Video.aggregate([
     { $match: { _id: new mongoose.Types.ObjectId(videoId) } },
-    {
-      $lookup: {
-        from: "subscriptions",
-        localField: "owner",
-        foreignField: "channel",
-        as: "subscribers",
-      },
-    },
+
     {
       $lookup: {
         from: "likes",
@@ -178,15 +178,14 @@ const getVideoById = asyncHandler(async (req, res) => {
         from: "users",
         localField: "owner",
         foreignField: "_id",
-        as: "ownerDetails",
+        as: "owner",
       },
     },
-    { $unwind: "$ownerDetails" },
+    { $unwind: { path: "$owner", preserveNullAndEmptyArrays: true } },
+
     {
       $addFields: {
-        subscriberCount: { $size: "$subscribers" },
-        likeCount: { $size: "$likes" },
-        ownerDetails: "$ownerDetails",
+        owner: "$owner",
         isLiked: userId
           ? {
               $gt: [
@@ -206,7 +205,6 @@ const getVideoById = asyncHandler(async (req, res) => {
       },
     },
 
-   
     {
       $project: {
         _id: 1,
@@ -215,13 +213,14 @@ const getVideoById = asyncHandler(async (req, res) => {
         title: 1,
         views: 1,
         description: 1,
-        likeCount: 1,
-        subscriberCount: 1,
+        duration:1,
+        likesCount: 1,
         tags: 1,
-        ownerDetails: {
+        owner: {
           _id: 1,
           avatar: 1,
           username: 1,
+          subscribersCount: 1,
         },
       },
     },
@@ -237,7 +236,7 @@ const getVideoById = asyncHandler(async (req, res) => {
       {
         $addToSet: {
           watchHistory: videoId,
-          recentlyWatchedVideoTags: { $each: video[0].tags },
+          recentlyWatchedVideoTags: { $each: video[0] ? video[0].tags : [] },
         },
       }
     );
@@ -250,14 +249,26 @@ const getVideoById = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Invalid videoId or the video does not exist");
   }
   console.log(video[0]);
+  const isSubscribed = await Subscription.findOne({
+    subscriber: userId,
+    channel: video[0].owner._id,
+  });
+  console.log(isSubscribed);
 
   return res
     .status(200)
-    .json(new ApiResponse(200, video[0], "Video Fetched successfully "));
+    .json(
+      new ApiResponse(
+        200,
+        { ...video[0], isSubscribed: isSubscribed ? true : false },
+        "Video Fetched successfully "
+      )
+    );
 });
 
 const updateVideo = asyncHandler(async (req, res) => {
   const { videoId } = req.body;
+  const userId = req.user?._id;
   const video = await Video.findById(videoId);
   if (!video) {
     throw new ApiError(400, "Video not found");
@@ -273,7 +284,10 @@ const updateVideo = asyncHandler(async (req, res) => {
   let updatedThumbnailLink = null;
 
   if (thumbnailLocalPath) {
-    updatedThumbnailLink = await uploadOnCloudinary(thumbnailLocalPath);
+    updatedThumbnailLink = await uploadOnCloudinary(
+      thumbnailLocalPath,
+      `${userId}'s_vid`
+    );
     console.log(updatedThumbnailLink);
     if (!updatedThumbnailLink) {
       throw new ApiError(500, "Failed to upload new thumbnail to Cloudinary");

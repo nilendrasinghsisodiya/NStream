@@ -5,12 +5,14 @@ import path from "path";
 // cloudinary Configuration
 cloudinary.config({
   secure:true,
-  cloud_name: process.env.CLOUNDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUNDINARY_API_KEY,
-  api_secret: process.env.CLOUNDINARY_API_SECRET,
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-const uploadOnCloudinary = async (filePath, publicId) => {
+const uploadOnCloudinary = async (filePath, folderName) => {
+
+console.log("api_keu",process.env.ClOUDINARY_API_KEY);
   try {
     console.log(filePath);
 
@@ -18,8 +20,7 @@ const uploadOnCloudinary = async (filePath, publicId) => {
 
     let response = await cloudinary.uploader.upload(filePath, {
       resource_type: "auto",
-      public_id: publicId,
-      folder:floderName
+      folder:folderName
     });
     console.log("file upoladed successfully", response.url);
     fs.unlinkSync(filePath);

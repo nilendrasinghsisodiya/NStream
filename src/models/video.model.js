@@ -48,6 +48,10 @@ const videoSchema = new Schema(
     tags:{
       type:[String],
       
+    },
+    likesCount:{
+      type:Number,
+      default:0,
     }
   },
   {

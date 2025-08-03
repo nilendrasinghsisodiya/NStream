@@ -39,51 +39,65 @@ const getPlaylistById = asyncHandler(async (req, res) => {
   if (!isValidId) {
     throw new ApiError(400, "not a valid playlistId");
   }
-const aggregateQuery = Playlist.aggregate([
-  {
-    $match: {
-      _id: new mongoose.Types.ObjectId(playlistId),
-    },
-  },
-  {
-    $lookup: {
-      from: "videos",
-      localField: "videos",
-      foreignField: "_id",
-      as: "videos",
-    },
-  },
-  { $unwind: "$videos" },
-  {
-    $lookup: {
-      from: "users",
-      localField: "videos.owner",
-      foreignField: "_id",
-      as: "videoOwner",
-    },
-  },
-  { $unwind: "$videoOwner" },
-  {
-    $project: {
-      _id: 1,
-      view: 1,
-      name: 1,
-      description: 1,
-      created_at: 1,
-      videos: {
-        _id: "$videos._id",
-        thumbnail: "$videos.thumbnail",
-        owner: {
-          _id: "$videoOwner._id",
-          avatar: "$videoOwner.avatar",
-          username: "$videoOwner.username",
-        },
-        title: "$videos.title",
-        view: "$videos.view",
+
+  const aggregateQuery = Playlist.aggregate([
+    {
+      $match: {
+        _id: new mongoose.Types.ObjectId(playlistId),
       },
     },
-  },
-]);
+    {
+      $lookup: {
+        from: "videos",
+        let: { videoIds: "$videos" },
+        pipeline: [
+          {
+            $match: {
+              $expr: { $in: ["$_id", "$$videoIds"] },
+            },
+          },
+          {
+            $lookup: {
+              from: "users",
+              localField: "owner",
+              foreignField: "_id",
+              as: "owner",
+            },
+            
+          },
+          { $unwind:"$owner" },
+          {$project:{
+            _id:1,
+            title:1,
+            thumbnail:1,
+            views:1,
+            duration:1,
+            likesCont:1,
+
+            owner:{
+              _id:'$owner._id',
+              avatar:'$owner.avatar',
+              username:'$owner.username',
+              subscribersCount:"$owner.subscribersCount"
+            }
+          }}
+        ],
+        as: "videos",
+      },
+    },
+    {
+      $project: {
+        _id: 1,
+        view: 1,
+        name: 1,
+        owner: 1,
+        duration:1,
+        description: 1,
+        created_at: 1,
+        videos:"$videos",
+      },
+    },
+  ]);
   const options = {
     page: pageNum,
     limit: pageLimit,
@@ -95,15 +109,22 @@ const aggregateQuery = Playlist.aggregate([
     },
   };
   const playlist = await Playlist.aggregatePaginate(aggregateQuery, options);
-  console.log("playlists",playlist);
-  if(!Array.isArray(playlist) && playlist.length === 0){
-  throw new ApiError(404,"no videos found in the playlists");
+  Playlist.findOneAndUpdate({_id:playlistId}, { $inc: { view: 1 } })
+    .then(() => {
+      console.log("view count incremented sucessfully");
+    })
+    .catch((err) => console.error(err.message));
 
-  }
-
+console.log(playlist);
   return res
     .status(200)
-    .json(new ApiResponse(200,{playlist:playlist.playlistVideos[0]}, "playlist fetched successfully"));
+    .json(
+      new ApiResponse(
+        200,
+       {playlist:playlist.playlistVideos[0]} ,
+        "playlist fetched successfully"
+      )
+    );
 });
 
 const addVideoToPlaylist = asyncHandler(async (req, res) => {
@@ -122,11 +143,11 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
   }
   console.log("req.body.videos : ", videoIds);
 
-  const validVideos = videoIds.filter((ele)=>isValidObjectId(ele));
+  const validVideos = videoIds.filter((ele) => isValidObjectId(ele));
 
   console.log("valid videos array : ", validVideos);
   const updatedPlaylist = await Playlist.findByIdAndUpdate(
-    playlistId,
+  {_id:playlistId},
     {
       $addToSet: {
         videos: { $each: validVideos },

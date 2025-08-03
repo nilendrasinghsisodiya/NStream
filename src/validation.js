@@ -26,12 +26,7 @@ export const loginValidator = [
 // used for createUser validation
 
 export const createUserValidator = [
-  body("username")
-    .isString()
-    .trim()
-    .notEmpty()
-    .withMessage("username cant be empty")
-    .escape(),
+ 
   body("description")
     .isString()
     .trim()

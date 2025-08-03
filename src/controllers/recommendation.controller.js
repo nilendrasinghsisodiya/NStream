@@ -8,6 +8,9 @@ import { asyncHandler } from "../utils/asyncHandler.js";
  *
  */
 const getUserRecommendation = asyncHandler(async (req, res) => {
+  if (!req.user) {
+    throw new ApiError(401,"optional request: user not found");
+  }
   const TagsArray = req.user.recentlyWatchedVideoTags;
 
   console.log("recentlyWatchVideoTags", TagsArray);
@@ -20,30 +23,19 @@ const getUserRecommendation = asyncHandler(async (req, res) => {
     },
     {
       $lookup: {
-        from: "Subscribers",
-        localField: "owner",
-        foreignField: "channel",
-        as: "subscribers",
-      },
-    },
-    {
-      $lookup: {
         from: "users",
         localField: "owner",
         foreignField: "_id",
-        as: "ownerDetails",
+        as: "owner",
       },
     },
-    { $unwind: "$ownerDetails" },
+    { $unwind: { path: "$owner", preserveNullAndEmptyArrays: true } },
     {
       $addFields: {
         matchCount: {
           $size: {
             $setIntersection: ["$tags", TagsArray],
           },
-        },
-        subscriberCount: {
-          $size: "$subscribers",
         },
       },
     },
@@ -53,15 +45,16 @@ const getUserRecommendation = asyncHandler(async (req, res) => {
         _id: 1,
         videoFile: 1,
         thumbnail: 1,
+        duration: 1,
         title: 1,
         views: 1,
+        likesCount: 1,
         owner: {
-          _id: "$ownerDetails._id",
-          avatar: "$ownerDetails.avatar",
-          username: "$ownerDetails.username",
-          subscriberCount: "$subscriberCount"
+          _id: "$owner._id",
+          avatar: "$owner.avatar",
+          username: "$owner.username",
+          subscribersCount: "$owner.subscribersCount",
         },
-        
       },
     },
   ]);
@@ -69,21 +62,31 @@ const getUserRecommendation = asyncHandler(async (req, res) => {
   console.log("RecommendedVideos", recommendedVideos);
   return res
     .status(200)
-    .json(new ApiResponse(200, recommendedVideos, "recommended videos"));
+    .json(
+      new ApiResponse(
+        200,
+        { ...recommendedVideos, optional: true },
+        "recommended videos"
+      )
+    );
 });
 
 const getRelatedVideos = asyncHandler(async (req, res) => {
-  const { videoId } = req.body;
+  const { videoId } = req.query;
   const { page = 1, limit = 10 } = req.query;
   const pageLimit = Number(limit);
   const pageNum = Number(page);
+  console.log("videoId in realtedVideos ", videoId);
   if (!isValidObjectId(videoId)) {
     throw new ApiError(400, "invalid object id");
   }
   const video = await Video.findById(videoId);
 
   const tags = Array.isArray(video.tags) ? video.tags : [];
-  console.log(video);
+  console.log(tags);
+  console.log("videoTag in relatedVideo", tags);
+
+  console.log("video in related  video", video);
   const aggregationQuery = Video.aggregate([
     {
       $match: {
@@ -94,13 +97,7 @@ const getRelatedVideos = asyncHandler(async (req, res) => {
     {
       $addFields: {
         tagMatchCount: {
-          $size: {
-            $filter: {
-              input: "$tags", // This is the tags in the document
-              as: "tag",
-              cond: { $in: ["$$tag", tags] }, // This should match tags passed into the aggregation
-            },
-          },
+          $size: { $setIntersection: ["$tags", tags] },
         },
       },
     },
@@ -108,7 +105,9 @@ const getRelatedVideos = asyncHandler(async (req, res) => {
       $project: {
         _id: 1,
         thumbnail: 1,
+        likesCount: 1,
         createdAt: 1,
+        duration: 1,
         views: 1,
         tagMatchCount: 1, // Include the tag match count for sorting purposes
       },
@@ -119,7 +118,7 @@ const getRelatedVideos = asyncHandler(async (req, res) => {
     page: pageNum,
     limit: pageLimit,
     customLabels: {
-      docs: "relatedVideos",
+      docs: "Videos",
       totalDocs: "totalVideos",
       page: "currentPage",
     },
@@ -131,6 +130,7 @@ const getRelatedVideos = asyncHandler(async (req, res) => {
   if (!relatedVideos) {
     throw new ApiError(500, "failed to fetch related videos");
   }
+  console.log("related videos", relatedVideos);
   return res
     .status(200)
     .json(
@@ -140,62 +140,52 @@ const getRelatedVideos = asyncHandler(async (req, res) => {
 
 const getPopularVideos = asyncHandler(async (req, res) => {
   const rand = Math.floor(Math.random() * 10);
-  const {limit,page} = req.query;
-  const popularVideosQuery =  Video.aggregate([
+  const { limit, page } = req.query;
+  const popularVideosQuery = Video.aggregate([
     { $sort: { views: -1 } }, // Sort by most viewed videos // Get top 10 videos
-    {
-      $lookup: {
-        from: "subscriptions", // Join with the subscriptions collection
-        localField: "owner",
-        foreignField: "channel",
-        as: "subscribers",
-      },
-    },
+
     {
       $lookup: {
         from: "users",
         localField: "owner",
         foreignField: "_id",
-        as: "ownerDetails",
+        as: "owner",
       },
     },
-    { $unwind: "$ownerDetails" },
-    {
-      $addFields: {
-        subscriberCount: { $size: "$subscribers" }, // Correctly count subscribers
-      },
-    },
+    { $unwind: { path: "$owner", preserveNullAndEmptyArrays: true } },
+
     {
       $project: {
         _id: 1,
         videoFile: 1,
+        duration: 1,
         thumbnail: 1,
         title: 1,
         views: 1,
         owner: {
-          _id: "$ownerDetails._id",
-          avatar: "$ownerDetails.avatar",
-          username: "$ownerDetails.username",
-          subscriberCount:"$subscriberCount"
+          _id: "$owner._id",
+          avatar: "$owner.avatar",
+          username: "$owner.username",
+          subscribersCount: "$owner.subscribersCount",
         },
       },
     },
   ]);
   const options = {
-    limit:Number(limit),
-    page:Number(page),
-    customLabels:{
-      totalDocs:"totalVideos",
-      page:"currentPage",
-      docs:"popularVideos",
-
-    }
-  }
-  const popularVideos= await Video.aggregatePaginate(popularVideosQuery,options);
+    limit: Number(limit),
+    page: Number(page),
+    customLabels: {
+      totalDocs: "totalVideos",
+      page: "currentPage",
+      docs: "popularVideos",
+    },
+  };
+  const popularVideos = await Video.aggregatePaginate(
+    popularVideosQuery,
+    options
+  );
   console.log(popularVideos);
-  if (popularVideos.totalDocs ===0) {
-    throw new ApiError(500, "no popular video found");
-  }
+
   console.log(popularVideos);
   return res
     .status(200)
@@ -222,7 +212,7 @@ const getSubscribedVideos = asyncHandler(async (req, res) => {
         as: "subscribedTo",
       },
     },
-    { $unwind: "$subscribedTo" },
+    { $unwind: { path: "$subscribedTo", preserveNullAndEmptyArrays: true } },
     {
       $lookup: {
         from: "videos",
@@ -232,13 +222,15 @@ const getSubscribedVideos = asyncHandler(async (req, res) => {
       },
     },
     { $unwind: "$subscribedTovideos" },
-    {$lookup:{
-      from:"User",
-      localField:"$subscribedToVideo.owner",
-      foreignField:"owner",
-      as:"subscribedToVideosOwner"
-    }},
-    {$unwind:"$subscribedToVideosOwner"},
+    {
+      $lookup: {
+        from: "User",
+        localField: "$subscribedToVideo.owner",
+        foreignField: "owner",
+        as: "subscribedToVideosOwner",
+      },
+    },
+    { $unwind: "$subscribedToVideosOwner" },
 
     {
       $project: {
@@ -247,34 +239,40 @@ const getSubscribedVideos = asyncHandler(async (req, res) => {
           _id: "$subscribedToVideos._id",
           videoFile: "$subscribedToVideos.videoFile",
           thumbnail: "$subscribedToVideos.videoFIle",
-          title:"$subscribedToVideos.title",
-          owner:{
-              _id:"$subscribedToVideosOwner._id",
-              username:"$subscribedToVideosOwner.username",
-              avatar:"$subscribedToVideosOwner.avatar"
-          }
+          title: "$subscribedToVideos.title",
+          views: "$subscribedToVideos.views",
+          likesCount: "%subscribedToVideos.likesCount",
+          duration: "$subscribedToVideos.duration",
+          owner: {
+            _id: "$subscribedToVideosOwner._id",
+            username: "$subscribedToVideosOwner.username",
+            avatar: "$subscribedToVideosOwner.avatar",
+          },
         },
       },
     },
     { $sort: { "$subscribedToVideos.createdAt": 1 } },
   ]);
-  const options={
-    limit:limitTo,
-    page:pageNum,
-    customLabels:{
-      page:'currentPage',
-      totalDocs:"totalVidoes",
-      docs:"recommendedVideos"
-    }
-  }
-  
-const videos = await Video.aggregatePaginate(videosQuery,options);
-  console.log("videos",videos);
-  if(videos.length === 0 ){
-    throw new ApiError(500,"no subscribed to videos");
-  }
+  const options = {
+    limit: limitTo,
+    page: pageNum,
+    customLabels: {
+      page: "currentPage",
+      totalDocs: "totalVidoes",
+      docs: "recommendedVideos",
+    },
+  };
 
-  
+  const videos = await Video.aggregatePaginate(videosQuery, options);
+  console.log("videos", videos);
+  if (videos.length === 0) {
+    throw new ApiError(500, "no subscribed to videos");
+  }
 });
 
-export { getUserRecommendation, getRelatedVideos, getPopularVideos,getSubscribedVideos };
+export {
+  getUserRecommendation,
+  getRelatedVideos,
+  getPopularVideos,
+  getSubscribedVideos,
+};
