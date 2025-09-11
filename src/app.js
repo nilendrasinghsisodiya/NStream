@@ -46,7 +46,7 @@ import userRouter from "./routes/user.routes.js";
 import likeRouter from "./routes/like.routes.js";
 import videoRouter from "./routes/video.routes.js";
 import playlistRouter from "./routes/playlist.routes.js";
-import tweetRouter from "./routes/tweet.routes.js";
+// import tweetRouter from "./routes/tweet.routes.js";
 import commentRouter from "./routes/comment.routes.js";
 import dashboardRouter from "./routes/dashboard.routes.js";
 import healthcheckRouter from "./routes/healthCheck.routes.js";
@@ -66,7 +66,7 @@ app.use("/api/v1/comment", commentRouter);
 app.use("/api/v1/dashboard", dashboardRouter);
 app.use("/healthCheck", healthcheckRouter);
 
-app.use("/api/v1/tweet", tweetRouter);
+// app.use("/api/v1/tweet", tweetRouter);
 app.get("/check", (req, res) => {
   res.send("hello world");
 });

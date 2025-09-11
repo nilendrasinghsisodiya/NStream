@@ -35,7 +35,7 @@ router
   
   
   router
-  .route("/update/")
+  .route("/update")
   .patch(verifyJwt,upload.single("thumbnail"), updateVideo);
   
   router.route("/toggle/publish").patch(verifyJwt,togglePublishStatus);
@@ -43,6 +43,7 @@ router
   router.route("/related").get(getRelatedVideos);
   router.route("/popular").get(getPopularVideos);
   router.route("/comments").get(verifyJwt,getVideoComments);
+
 
 
 export default router;

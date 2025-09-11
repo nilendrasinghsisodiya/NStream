@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
+import mongooseAggregatePaginate from "mongoose-aggregate-paginate-v2";
 const userSchema = new mongoose.Schema(
   {
     username: {
@@ -8,6 +9,7 @@ const userSchema = new mongoose.Schema(
       unique: true,
       lowercase: true,
       trim: true,
+      index:true,
       
     },
     email: {
@@ -16,19 +18,17 @@ const userSchema = new mongoose.Schema(
       unique: true,
       lowercase: true,
       trim: true,
+      index:true
     },
     fullname: {
       type: String,
-      
+      index:true,
       trim: true,
       
     },
     avatar: {
       type: String, //cloud url
      
-    },
-    coverImage: {
-      type: String,
     },
     watchHistory: [
       {
@@ -47,19 +47,23 @@ const userSchema = new mongoose.Schema(
       type: String,
      
     },
-    coverImagePublicId: {
-      type: String,
-     
-    },
     recentlyWatchedVideoTags: [{ type: String}],
     subscribersCount:{
       type:Number,
       default:0,
+    },
+    description:{
+      type:String,
+      default:"",
+    },
+    isProfileComplete:{
+      type:Boolean,
+      default:false
     }
   },
   { timestamps: true }
 );
-
+userSchema.plugin(mongooseAggregatePaginate)
 userSchema.pre("save", async function (next) {
   console.log("🔹 Running pre-save hook for:", this.email);
 

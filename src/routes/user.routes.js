@@ -12,18 +12,20 @@ import {
   getUserChannelProfile,
   getUserWatchHistory,
   getUserPlaylists,
-  getUserTweets,
+  // getUserTweets,
   createUser,
-  toggleSubscribe
+  toggleSubscribe,
+  searchUsers
 } from "../controllers/user.controller.js";
 
 import { upload } from "../middlewares/multer.middleware.js";
 import { verifyJwt } from "../middlewares/auth.middleware.js";
 import { getUserRecommendation,getSubscribedVideos } from "../controllers/recommendation.controller.js";
-import { createUserValidator, loginValidator } from "../validation.js";
+import { createUserValidator, loginValidator, signUpValidator } from "../validation.js";
+import { likedVideo } from "../controllers/video.controller.js";
 const router = Router();
 
-router.route("/register").post(loginValidator, registerUser);
+router.route("/register").post(signUpValidator, registerUser);
 
 router.route("/login").post(loginValidator, loginUser);
 
@@ -60,8 +62,9 @@ router.route("/history").get(verifyJwt, getUserWatchHistory);
 
 router.route("/playlists").get(getUserPlaylists);
 router.route("/recommendations").get(verifyJwt, getUserRecommendation);
-router.route("/tweets").get(getUserTweets);
+// router.route("/tweets").get(getUserTweets);
 router.route("/subscribe").post(verifyJwt,toggleSubscribe);
-router.route("/subscribedVideos").get(getSubscribedVideos);
-
+router.route("/subscribedVideos").get(verifyJwt,getSubscribedVideos);
+router.route("/liked-videos").get(verifyJwt,likedVideo);
+router.route("/search").get(verifyJwt,searchUsers);
 export default router;

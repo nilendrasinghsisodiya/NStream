@@ -3,6 +3,7 @@ import { Comment } from "../models/comment.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { Video } from "../models/video.model.js";
 
 const getVideoComments = asyncHandler(async (req, res) => {
   //TODO: get all comments for a video
@@ -51,7 +52,7 @@ const aggregateQuery = Comment.aggregate([
   
   {
     $addFields: {
-      likeCount: { $size: "$likes" },
+      likesCount: { $size: "$likes" },
       videoId:{videoId},
       isLiked: {
         $cond: {
@@ -83,7 +84,7 @@ const aggregateQuery = Comment.aggregate([
       _id: 1,
       content: 1,
       createdAt: 1,
-      likeCount: 1,
+      likesCount: 1,
       isLiked: 1,
       owner: {
         _id: "$owner._id",
@@ -179,13 +180,16 @@ const deleteComment = asyncHandler(async (req, res) => {
   // TODO: delete a comment
   const { commentId } = req.query;
   const userId = req?.user?._id;
-  if (!isValidObjectId(commentId) || !userId) {
-    throw new ApiError(400, "Invalid comment id or unauthrized acceess");
+  if (!isValidObjectId(commentId)) {
+    throw new ApiError(400, "Invalid comment id");
   }
   const comment = await Comment.findById(commentId);
+  const videoId = comment.video;
+  console.log("VideoId in comment",videoId);
+  const isVideoOwner = await Video.findById(videoId).isOwner(userId);
   const isOwner = comment.isOwner(userId);
-  if (!isOwner) {
-    throw new ApiError(400, "NOT THE OWNER");
+  if (!isOwner && !isVideoOwner) {
+    throw new ApiError(403, "Forbidden operation");
   }
   const deleteRes = await Comment.findByIdAndDelete(commentId);
   if (!deleteRes) {

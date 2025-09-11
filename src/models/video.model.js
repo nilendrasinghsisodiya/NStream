@@ -16,9 +16,14 @@ const videoSchema = new Schema(
       required: true,
       index:true
     },
-    description: {
-      type: String,
-      required: true,
+    // description: {
+    //   type: String,
+    //   required: true,
+    // },
+    deleted:{
+      type:Boolean,
+      default:false,
+      index:true,
     },
     duration: {
       type: Number, //cloud content info

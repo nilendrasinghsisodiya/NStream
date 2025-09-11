@@ -9,6 +9,7 @@ import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
 import mongoose, { isValidObjectId } from "mongoose";
 import { Subscription } from "../models/subscription.model.js";
+import { escapeRegex } from "../utils/additionalUtils.js";
 
 const registerUser = asyncHandler(async (req, res) => {
   // get user details
@@ -45,6 +46,7 @@ const registerUser = asyncHandler(async (req, res) => {
     password,
     username,
     subscribersCount: 0,
+    isProfileComplete: false,
   });
 
   const userExist = await User.findById(user._id).select(
@@ -210,26 +212,22 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 const createUser = asyncHandler(async (req, res) => {
   const { fullname, description } = req.body;
   const userId = req.user?._id;
+  const isProfileComplete = req.user.isProfileComplete;
+  if (isProfileComplete) {
+    throw new ApiError(404, "ERROR:invalid operation");
+  }
   const avatarLocalPath = req.files?.avatar[0]?.path;
   console.log(avatarLocalPath);
-  let coverImageLocalPath;
-  if (
-    req.files &&
-    Array.isArray(req.files.coverImage) &&
-    req.files.coverImage.length > 0
-  ) {
-    coverImageLocalPath = req.files.coverImage[0]?.path;
-  }
 
-  console.log(req.files, avatarLocalPath, coverImageLocalPath);
+  console.log(req.files, avatarLocalPath);
   if (!avatarLocalPath) {
     throw new ApiError(400, "Avatar file needed");
   }
 
   const avatar = await uploadOnCloudinary(avatarLocalPath, `${userId}`);
+  d;
   console.log("avatar upload result on cloudinary : ", avatar);
-  const coverImage = await uploadOnCloudinary(coverImageLocalPath, userId);
-  console.log("coverImage upload result : ", coverImage);
+
   if (!avatar) {
     throw new ApiError(400, "Avatar file is required");
   }
@@ -239,8 +237,6 @@ const createUser = asyncHandler(async (req, res) => {
     {
       avatar: avatar.url,
       avatarPublicId: avatar.public_id,
-      coverImage: coverImage?.url,
-      coverImagePublicId: coverImage?.public_id,
       description: description,
       fullname: fullname,
     },
@@ -282,13 +278,15 @@ const getCurrentUser = asyncHandler(async (req, res) => {
 
 const updateAccountDetails = asyncHandler(async (req, res) => {
   const { fullname, email, description } = req.body;
-  if (!fullname || !email) {
+  if (!(fullname || email || description)) {
     throw new ApiError(400, "field are empty");
   }
-  const fields = {};
+  console.log(fullname, email, description);
+  let fields = {};
   if (fullname) fields.fullname = fullname;
   if (email) fields.email = email;
-  if (description) fields.description;
+  if (description) fields.description = description;
+  console.log("field in update account", fields);
   const user = await User.findByIdAndUpdate(req.user?._id, fields, {
     new: true,
   }).select("-password -refreshToken -avatarPublicId -coverImagePublicId");
@@ -424,9 +422,14 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
         username: 1,
         subscribersCount: "$subscribersCount",
         channelsSubscribedToCount: "$channelSubscribedToCount",
-        
+
         avatar: 1,
-        videos: "$videos._id",
+        videos: {
+          _id: "$videos._id",
+          thumbnail: "$videos.thumbnail",
+          title: "$videos.title",
+          views: "$videos.views",
+        },
         description: 1,
         coverImage: 1,
         email: 1,
@@ -441,13 +444,13 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Channel does not exist");
   }
   console.log("User ID:", req.user?.id);
-console.log("Channel ID:", ChannelId);
+  console.log("Channel ID:", ChannelId);
 
   const isSubscribed = await Subscription.findOne({
-  subscriber: req.user?._id,
-  channel: ChannelId,
-});
-// userId is the channelId for that particular channel
+    subscriber: req.user?._id,
+    channel: ChannelId,
+  });
+  // userId is the channelId for that particular channel
   console.log("isSubscribed", isSubscribed);
   return res
     .status(200)
@@ -461,68 +464,72 @@ console.log("Channel ID:", ChannelId);
 });
 
 const getUserWatchHistory = asyncHandler(async (req, res) => {
-  const isLogined = req?.user;
-  console.log("islogined : ", isLogined);
-  if (!isLogined) {
-    throw new ApiError(400, "User not Logged In");
-  }
-
-  const user = await User.aggregate([
+  const userId = req.user._id;
+  const history = await User.aggregate([
     {
       $match: {
-        _id: isLogined._id,
+        _id: userId,
       },
     },
+    { $limit: 50 },
     {
       $lookup: {
         from: "videos",
+        as: "historyVideos",
         localField: "watchHistory",
         foreignField: "_id",
-        as: "watchHistory",
         pipeline: [
           {
             $lookup: {
               from: "users",
               localField: "owner",
               foreignField: "_id",
-              as: "owner",
-              pipeline: [
-                {
-                  $project: {
-                    fullname: 1,
-                    avatar: 1,
-                    username: 1,
-                  },
-                },
-              ],
+              as: "vidOwner",
+            },
+          },
+          {
+            $unwind: {
+              path: "$vidOwner",
+              preserveNullAndEmptyArrays: true,
+            },
+          },
+          {
+            $project: {
+              thumbnail: 1,
+              title: 1,
+              views: 1,
+              duration: 1,
+              owner: {
+                avatar: "$vidOwner.avatar",
+                _id: "$vidOwner._id",
+                username: "$vidOwner.username",
+                subscribersCount: "$vidOwner.subscribersCount",
+              },
             },
           },
         ],
       },
     },
     {
-      $addFields: {
-        owner: {
-          $first: "$owner",
-        },
+      $unwind: {
+        path: "$historyVideos",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $project: {
+        historyVideos: 1,
       },
     },
   ]);
-
-  if (!user) {
-    throw new ApiError(
-      404,
-      "user does not exist or watchHistory does not exist"
-    );
-  }
-  console.log("user : ", user);
+  const historyVideos = history.map((h) => h.historyVideos);
   return res
     .status(200)
     .json(
       new ApiResponse(
         200,
-        user[0].watchHistory,
-        "user watchHistory added successfully"
+        historyVideos,
+        "user watchHistory fetched successfully"
       )
     );
 });
@@ -555,12 +562,19 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
       },
     },
     {
+      $addFields: {
+        "userPlaylists.videos": {
+          $ifNull: ["$userPlaylists.videos", []],
+        },
+      },
+    },
+    {
       $lookup: {
         from: "videos",
         let: { videoIds: "$userPlaylists.videos" },
         pipeline: [
           { $match: { $expr: { $in: ["$_id", "$$videoIds"] } } },
-          { $project: { thumbnail: 1,duration:1 } },
+          { $project: { thumbnail: 1, duration: 1 } },
           { $limit: 1 },
         ],
         as: "playlistCover",
@@ -570,6 +584,16 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
       $addFields: {
         "userPlaylists.cover": {
           $arrayElemAt: ["$playlistCover.thumbnail", 0],
+        },
+      },
+    },
+    {
+      $match: {
+        $expr: {
+          $and: [
+            { $ne: ["$userPlaylists", null] },
+            { $ne: ["$userPlaylists", {}] },
+          ],
         },
       },
     },
@@ -600,56 +624,147 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
   if (playlists.length === 0) {
     throw new ApiError(404, "No playlists found for this user.");
   }
-
+  const userPlaylists = playlists[0].userPlaylists.filter(
+    (p) => p && Object.keys(p).length
+  );
   // Return the user's playlists
   return res.status(200).json(
     new ApiResponse(
       200,
-      { playlists: playlists[0].userPlaylists }, // Return user's playlists
+      { playlists: userPlaylists }, // Return user's playlists
       "Playlists fetched successfully."
     )
   );
 });
-const getUserTweets = asyncHandler(async (req, res) => {
-  const { username } = req.body;
 
-  const userTweets = await User.aggregate([
-    { $match: { username: username } },
+
+const searchUsers = asyncHandler(async(req,res)=>{
+  const userId = req?.user?._id;
+const {
+      page = 1,
+      limit = 10,
+      query,
+      
+      
+    } = req.query;
+
+    const filter = {};
+    if (query) {
+      filter.username = { $regex: escapeRegex(query), $options: "i" };
+    }
+
+    const pageNum = parseInt(page);
+    const pageLimit = parseInt(limit);
+
+    
+
+   const isLoggedIn = !!userId;
+
+const aggregateQuery = User.aggregate([
+  {
+    $match: {
+     ...filter
+    },
+  },
+  {
+    $lookup: {
+      from: "subscriptions",
+      let: { channelId: "$_id" }, // the user being searched
+      pipeline: [
+        {
+          $match: {
+            $expr: {
+              $and: [
+                { $eq: ["$channel", "$$channelId"] },
+                ...(isLoggedIn
+                  ? [{ $eq: ["$subscriber", new mongoose.Types.ObjectId(userId)] }]
+                  : []),
+                ],
+              },
+            },
+          },
+        ],
+        as: "subscriptionInfo",
+      },
+    },
     {
-      $lookup: {
-        from: "tweets",
-        localField: "_id",
-        foreignField: "owner",
-        as: " userTweets",
+      $addFields: {
+        isSubscribed: { $gt: [{ $size: "$subscriptionInfo" }, 0] },
       },
     },
     {
       $project: {
         _id: 1,
         username: 1,
-        userTweets: {
-          _id: 1,
-          content: 1,
-          createdAt: 1,
-        },
+        avatar: 1,
+        subscribersCount: 1,
+        isSubscribed: 1,
       },
     },
-  ]);
-  if (userTweets.length === 0) {
-    throw new ApiError(500, "no tweets found for this user");
-  }
-  return res
-    .status(200)
-    .json(
-      new ApiResponse(200, userTweets[0], "User tweets fetched successfully")
-    );
-});
+   
+
+]);
+
+  const options = {
+    limit: pageLimit,
+    page: pageNum,
+    customLabels: {
+      page: "currentPage",
+      totalDocs: "totalChannels",
+      docs: "Channels",
+    },
+  };
+
+  const channels = await User.aggregatePaginate(aggregateQuery,options);
+
+  return res.status(200).json(new ApiResponse(200,channels,"channel searched successfully"))
+
+
+
+
+    
+
+})
+// const getUserTweets = asyncHandler(async (req, res) => {
+//   const { username } = req.body;
+
+//   const userTweets = await User.aggregate([
+//     { $match: { username: username } },
+//     {
+//       $lookup: {
+//         from: "tweets",
+//         localField: "_id",
+//         foreignField: "owner",
+//         as: " userTweets",
+//       },
+//     },
+//     {
+//       $project: {
+//         _id: 1,
+//         username: 1,
+//         userTweets: {
+//           _id: 1,
+//           content: 1,
+//           createdAt: 1,
+//         },
+//       },
+//     },
+//   ]);
+//   if (userTweets.length === 0) {
+//     throw new ApiError(500, "no tweets found for this user");
+//   }
+//   return res
+//     .status(200)
+//     .json(
+//       new ApiResponse(200, userTweets[0], "User tweets fetched successfully")
+//     );
+// });
 
 const toggleSubscribe = asyncHandler(async (req, res) => {
   const { targetId } = req.body;
   const userId = req?.user?._id;
   let message = "";
-  let flag= undefined;
+  let flag = undefined;
 
   if (!targetId || !userId) {
     throw new ApiError(400, "Fields may be missing");
@@ -671,22 +786,24 @@ const toggleSubscribe = asyncHandler(async (req, res) => {
         console.log("successfully decreasd subs count");
       })
       .catch((error) => console.log(error.message));
-      flag= false;
+    flag = false;
   } else {
     await Subscription.create({ channel: targetId, subscriber: userId });
     User.findByIdAndUpdate({ _id: targetId }, { $inc: { subscribersCount: 1 } })
       .then(() => console.log("successfully increased subs count"))
       .catch((error) => console.log(error.message));
     message = "Channel subscribed successfully";
-    flag=true;
+    flag = true;
   }
 
   // Get updated subscriber count separately (fast, but may have slight delays)
-  const subsCount = await Subscription.countDocuments({ channel: targetId });
+  const subscribersCount = await Subscription.countDocuments({ channel: targetId });
 
   return res
     .status(200)
-    .json(new ApiResponse(200, { subscribersCount: subsCount, inc:flag }, message));
+    .json(
+      new ApiResponse(200, { subscribersCount: subscribersCount, inc: flag }, message)
+    );
 });
 
 export {
@@ -702,7 +819,8 @@ export {
   getUserWatchHistory,
   updateAccountDetails,
   getUserPlaylists,
-  getUserTweets,
+  // getUserTweets,
   createUser,
   toggleSubscribe,
+  searchUsers
 };

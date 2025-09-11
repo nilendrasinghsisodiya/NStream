@@ -128,11 +128,13 @@ console.log(playlist);
 });
 
 const addVideoToPlaylist = asyncHandler(async (req, res) => {
-  const userId = req?.user?._id;
-  if (!userId) {
-    throw new ApiError(401, "unauthorized access");
-  }
   const { playlistId, videoIds } = req.body;
+  const userId = req?.user?._id;
+  const playlist = await Playlist.findById({_id:playlistId});
+  const isOwner = playlist.isOwner(userId);
+  if (!isOwner) {
+    throw new ApiError(403, "forbidden access");
+  }
 
   const isValidPlaylistId = isValidObjectId(playlistId);
   if (!isValidPlaylistId) {
@@ -181,7 +183,7 @@ const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
   }
   if (!req?.user?._id) {
     throw new ApiError(
-      400,
+      401,
       "you need to be logged in to remove a video from a playlist"
     );
   }
@@ -192,7 +194,7 @@ const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
   }
   if (!isOwner) {
     throw new ApiError(
-      400,
+      403,
       "you need to be owner to remove a video from a playlist"
     );
   }

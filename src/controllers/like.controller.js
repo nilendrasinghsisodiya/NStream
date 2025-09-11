@@ -4,29 +4,34 @@ import { Like } from "../models/like.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { ApiError } from "../utils/ApiError.js";
-import mongoose from "mongoose";
+import mongoose, { isValidObjectId } from "mongoose";
 
 const toggleVideoLike = asyncHandler(async (req, res) => {
   const { videoId } = req.body;
   // check if video with this id exist of not
-  const video = await Video.findById(videoId);
+  console.log("in like controller","videoId",videoId);
   let message = "";
 
-  if (!video) {
-    throw new ApiError(400, "Invalid Video ID");
+  if (!isValidObjectId(videoId)) {
+    throw new ApiError(400, "Invalid Video id");
   }
   const userId = req?.user?._id;
+  console.log("userId", userId, "videoId:", videoId);
   const existingLike = await Like.findOne({
-    likedby: userId,
-    videoId: video._id,
+    likedBy: userId,
+    video: new mongoose.Types.ObjectId(videoId),
   });
+  console.log("existingLike", existingLike);
 
   if (!existingLike) {
     const like = await Like.create({
       likedBy: userId,
-      video: video._id,
+      video: new mongoose.Types.ObjectId(videoId),
     });
-    Video.findByIdAndUpdate({ _id: video._id }, { $inc: { likesCount: 1 } })
+    Video.findByIdAndUpdate(
+      { _id: new mongoose.Types.ObjectId(videoId) },
+      { $inc: { likesCount: 1 } }
+    )
       .then(() => console.log("video like count updated successfully"))
       .catch((error) => console.log(error.message));
     console.log(like);
@@ -36,16 +41,15 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
     message = "video liked sucessfully";
   } else {
     await Like.deleteOne({ _id: existingLike._id });
-    console.log(updatedVideo);
-    Video.findByIdAndUpdate({ _id: video._id }, { $inc: { likesCount: -1 } })
+    Video.findByIdAndUpdate(
+      { _id: new mongoose.Types.ObjectId(videoId) },
+      { $inc: { likesCount: -1 } }
+    )
       .then(() => console.log("video like count updated successfully"))
       .catch((error) => console.log(error.message));
     message = "video disLiked sucessfully";
   }
-  const likes = await Like.countDocuments({ video: videoId });
-  return res
-    .status(200)
-    .json(new ApiResponse(200, { likesCount: likes }, message));
+  return res.status(200).json(new ApiResponse(200, {}, message));
 });
 const toggleCommentLike = asyncHandler(async (req, res) => {
   const { targetId } = req.body;

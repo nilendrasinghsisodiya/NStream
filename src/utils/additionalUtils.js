@@ -11,3 +11,7 @@ export const updateManyFieldsInDoc = (modal,filter, query) => {
 };
 
 
+export function escapeRegex(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
