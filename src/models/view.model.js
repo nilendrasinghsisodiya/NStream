@@ -32,7 +32,7 @@ viewSchema.index({ ip: 1, video: 1, user: 1, createdAt: 1 });
 const View = mongoose.model('View', viewSchema);
 
 
-const presisitViewSchema = mongoose.Schema({
+const presisitViewSchema = new mongoose.Schema({
     video:{
         type:mongoose.Schema.ObjectId,
         ref:"Video",

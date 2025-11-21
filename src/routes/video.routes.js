@@ -11,7 +11,7 @@ import { verifyJwt } from "../middlewares/auth.middleware.js";
 import { upload } from "../middlewares/multer.middleware.js";
 import { getVideoComments } from "../controllers/comment.controller.js";
 import { getRelatedVideos,getPopularVideos, getSubscribedVideos } from "../controllers/recommendation.controller.js";
-
+import { videoUploadValidtors } from "../validators/video.validators.js";
 const router = Router();
 
 
@@ -28,6 +28,7 @@ router
         maxCount: 1,
       },
     ]),
+    videoUploadValidtors,
     publishAVideo
   );
 

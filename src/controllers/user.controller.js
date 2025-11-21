@@ -7,25 +7,12 @@ import {
 } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
-import mongoose, { isValidObjectId } from "mongoose";
+import { isValidObjectId } from "mongoose";
 import { Subscription } from "../models/subscription.model.js";
 import { escapeRegex } from "../utils/additionalUtils.js";
-
+import { mongodbId } from "../utils/additionalUtils.js";
 const registerUser = asyncHandler(async (req, res) => {
-  // get user details
-
-  // validation -not empty
-  // check if exists _ username, email
-  // check if avatar and cover image
-  // upload them to cloudinary
-  // put limits to register
-  //create user object - create entry n db
-  // remove password  and refresh token field from response
-  // check for user creation
-  // return res
-
   const { email, password, username } = req.body;
-  console.log("email: ", email, "password", password);
 
   if ([email, password, username].some((field) => field?.trim() === "")) {
     throw new ApiError(400, "some fields are empty");
@@ -38,8 +25,6 @@ const registerUser = asyncHandler(async (req, res) => {
   if (existedUser) {
     throw new ApiError(409, "User with this email or username exists");
   }
-  console.log("user Check ", existedUser);
-  console.log(req.files);
 
   const user = await User.create({
     email,
@@ -56,7 +41,6 @@ const registerUser = asyncHandler(async (req, res) => {
   if (!userExist) {
     throw new ApiError(500, "Something went wrong while registering the user");
   }
-  console.log("userCreated with data: ", userExist);
   return res
     .status(201)
     .json(new ApiResponse(200, userExist, "User created Successfully"));
@@ -68,13 +52,11 @@ const generateAccessAndRefreshTokens = async (userId) => {
     const accessToken = user.generateAccessToken();
     const refreshToken = user.generateRefreshToken();
 
-    console.log(accessToken, refreshToken);
     user.refreshToken = refreshToken;
     await user.save({ validateBeforeSave: false });
 
     return { accessToken, refreshToken };
   } catch (error) {
-    console.log(error);
     throw new ApiError(
       500,
       "something went wrong while generating refresh and access token"
@@ -144,8 +126,6 @@ const logoutUser = asyncHandler(async (req, res) => {
     sameSite: "None",
   };
 
-  console.log(UserToLogout);
-
   return res
     .status(200)
     .clearCookie("accessToken", options)
@@ -201,7 +181,6 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
         )
       );
   } catch (error) {
-    console.log(error);
     throw new ApiError(
       401,
       error.message || "something went wrong when generating tokens"
@@ -217,16 +196,13 @@ const createUser = asyncHandler(async (req, res) => {
     throw new ApiError(404, "ERROR:invalid operation");
   }
   const avatarLocalPath = req.files?.avatar[0]?.path;
-  console.log(avatarLocalPath);
 
-  console.log(req.files, avatarLocalPath);
   if (!avatarLocalPath) {
     throw new ApiError(400, "Avatar file needed");
   }
 
   const avatar = await uploadOnCloudinary(avatarLocalPath, `${userId}`);
   d;
-  console.log("avatar upload result on cloudinary : ", avatar);
 
   if (!avatar) {
     throw new ApiError(400, "Avatar file is required");
@@ -254,7 +230,6 @@ const createUser = asyncHandler(async (req, res) => {
 
 const changeCurrentPassword = asyncHandler(async (req, res) => {
   const { oldPassword, newPassword } = req.body;
-  console.log(req.body, oldPassword, newPassword);
   const user = await User.findById(req.user?._id);
   const isPasswordCorrect = await user.isPasswordCorrect(oldPassword);
 
@@ -281,12 +256,10 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
   if (!(fullname || email || description)) {
     throw new ApiError(400, "field are empty");
   }
-  console.log(fullname, email, description);
   let fields = {};
   if (fullname) fields.fullname = fullname;
   if (email) fields.email = email;
   if (description) fields.description = description;
-  console.log("field in update account", fields);
   const user = await User.findByIdAndUpdate(req.user?._id, fields, {
     new: true,
   }).select("-password -refreshToken -avatarPublicId -coverImagePublicId");
@@ -319,7 +292,6 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
     { new: true }
   ).select("-password -refreshToken -avatarPublicId -coverImagePublicId");
   const deleteResult = await deleteFromCloudinary(oldPublicId);
-  console.log("old avatar deleted successfully : ", deleteResult);
 
   return res
     .status(200)
@@ -336,7 +308,6 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
   if (!coverImage.url) {
     throw new ApiError(400, "Error while uploading on avatar");
   }
-  console.log("old coverImageDeletedSuccessfully", deleteResult);
   const oldPublicId = req?.user?.coverImagePublicId;
   const user = await User.findByIdAndUpdate(
     req.user?._id,
@@ -350,18 +321,14 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
   ).select("-password -refreshToken -avatarPublicId -coverImagePublicId");
 
   const deleteResult = await deleteFromCloudinary(oldPublicId);
-  console.log("old coverimage deleted : ", deleteResult);
   return res
     .status(200)
     .json(new ApiResponse(200, user, "user cover image updated successfully"));
 });
 
 const getUserChannelProfile = asyncHandler(async (req, res) => {
-  console.log("getUserChannleProfile ran");
   const { userId, username } = req.query;
 
-  console.log(req.query);
-  console.log(username, userId);
   if (!isValidObjectId(userId) && !username.trim()) {
     throw new ApiError(400, "Username or valid User ID is required");
   }
@@ -375,9 +342,8 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
     ChannelId = user?.id;
   }
   if (userId) {
-    fields._id = new mongoose.Types.ObjectId(userId);
+    fields._id = mongodbId(userId);
   }
-  console.log(fields);
   const channels = await User.aggregate([
     {
       $match: { ...fields },
@@ -437,21 +403,16 @@ const getUserChannelProfile = asyncHandler(async (req, res) => {
       },
     },
   ]);
-  console.log(username, userId);
-  console.log(channels);
 
   if (channels.length === 0) {
     throw new ApiError(404, "Channel does not exist");
   }
-  console.log("User ID:", req.user?.id);
-  console.log("Channel ID:", ChannelId);
 
   const isSubscribed = await Subscription.findOne({
     subscriber: req.user?._id,
     channel: ChannelId,
   });
   // userId is the channelId for that particular channel
-  console.log("isSubscribed", isSubscribed);
   return res
     .status(200)
     .json(
@@ -637,48 +598,39 @@ const getUserPlaylists = asyncHandler(async (req, res) => {
   );
 });
 
-
-const searchUsers = asyncHandler(async(req,res)=>{
+const searchUsers = asyncHandler(async (req, res) => {
   const userId = req?.user?._id;
-const {
-      page = 1,
-      limit = 10,
-      query,
-      
-      
-    } = req.query;
+  const { page = 1, limit = 10, query } = req.query;
 
-    const filter = {};
-    if (query) {
-      filter.username = { $regex: escapeRegex(query), $options: "i" };
-    }
+  const filter = {};
+  if (query) {
+    filter.username = { $regex: escapeRegex(query), $options: "i" };
+  }
 
-    const pageNum = parseInt(page);
-    const pageLimit = parseInt(limit);
+  const pageNum = parseInt(page);
+  const pageLimit = parseInt(limit);
 
-    
+  const isLoggedIn = !!userId;
 
-   const isLoggedIn = !!userId;
-
-const aggregateQuery = User.aggregate([
-  {
-    $match: {
-     ...filter
+  const aggregateQuery = User.aggregate([
+    {
+      $match: {
+        ...filter,
+      },
     },
-  },
-  {
-    $lookup: {
-      from: "subscriptions",
-      let: { channelId: "$_id" }, // the user being searched
-      pipeline: [
-        {
-          $match: {
-            $expr: {
-              $and: [
-                { $eq: ["$channel", "$$channelId"] },
-                ...(isLoggedIn
-                  ? [{ $eq: ["$subscriber", new mongoose.Types.ObjectId(userId)] }]
-                  : []),
+    {
+      $lookup: {
+        from: "subscriptions",
+        let: { channelId: "$_id" }, // the user being searched
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ["$channel", "$$channelId"] },
+                  ...(isLoggedIn
+                    ? [{ $eq: ["$subscriber", mongodbId(userId)] }]
+                    : []),
                 ],
               },
             },
@@ -701,9 +653,7 @@ const aggregateQuery = User.aggregate([
         isSubscribed: 1,
       },
     },
-   
-
-]);
+  ]);
 
   const options = {
     limit: pageLimit,
@@ -715,50 +665,12 @@ const aggregateQuery = User.aggregate([
     },
   };
 
-  const channels = await User.aggregatePaginate(aggregateQuery,options);
+  const channels = await User.aggregatePaginate(aggregateQuery, options);
 
-  return res.status(200).json(new ApiResponse(200,channels,"channel searched successfully"))
-
-
-
-
-    
-
-})
-// const getUserTweets = asyncHandler(async (req, res) => {
-//   const { username } = req.body;
-
-//   const userTweets = await User.aggregate([
-//     { $match: { username: username } },
-//     {
-//       $lookup: {
-//         from: "tweets",
-//         localField: "_id",
-//         foreignField: "owner",
-//         as: " userTweets",
-//       },
-//     },
-//     {
-//       $project: {
-//         _id: 1,
-//         username: 1,
-//         userTweets: {
-//           _id: 1,
-//           content: 1,
-//           createdAt: 1,
-//         },
-//       },
-//     },
-//   ]);
-//   if (userTweets.length === 0) {
-//     throw new ApiError(500, "no tweets found for this user");
-//   }
-//   return res
-//     .status(200)
-//     .json(
-//       new ApiResponse(200, userTweets[0], "User tweets fetched successfully")
-//     );
-// });
+  return res
+    .status(200)
+    .json(new ApiResponse(200, channels, "channel searched successfully"));
+});
 
 const toggleSubscribe = asyncHandler(async (req, res) => {
   const { targetId } = req.body;
@@ -781,28 +693,31 @@ const toggleSubscribe = asyncHandler(async (req, res) => {
     User.findByIdAndUpdate(
       { _id: targetId },
       { $inc: { subscribersCount: -1 } }
-    )
-      .then(() => {
-        console.log("successfully decreasd subs count");
-      })
-      .catch((error) => console.log(error.message));
+    );
     flag = false;
   } else {
     await Subscription.create({ channel: targetId, subscriber: userId });
-    User.findByIdAndUpdate({ _id: targetId }, { $inc: { subscribersCount: 1 } })
-      .then(() => console.log("successfully increased subs count"))
-      .catch((error) => console.log(error.message));
+    User.findByIdAndUpdate(
+      { _id: targetId },
+      { $inc: { subscribersCount: 1 } }
+    );
     message = "Channel subscribed successfully";
     flag = true;
   }
 
   // Get updated subscriber count separately (fast, but may have slight delays)
-  const subscribersCount = await Subscription.countDocuments({ channel: targetId });
+  const subscribersCount = await Subscription.countDocuments({
+    channel: targetId,
+  });
 
   return res
     .status(200)
     .json(
-      new ApiResponse(200, { subscribersCount: subscribersCount, inc: flag }, message)
+      new ApiResponse(
+        200,
+        { subscribersCount: subscribersCount, inc: flag },
+        message
+      )
     );
 });
 
@@ -822,5 +737,5 @@ export {
   // getUserTweets,
   createUser,
   toggleSubscribe,
-  searchUsers
+  searchUsers,
 };

@@ -12,6 +12,7 @@ import { app } from "./app.js";
 import { Video } from "./models/video.model.js";
 import { User } from "./models/user.model.js";
 import { deleteFromCloudinary } from "./utils/cloudinary.js";
+import { otpQueue } from "./messageQueue/bullmq.setup.js";
 
 connectDB()
   .then(() => {
@@ -51,7 +52,7 @@ connectDB()
   });
 
 // updateManyFieldsInDoc(Video,{},{$set:{deleted:false}});
-
+otpQueue.add("opt",{useremail:"okashishow@gmail",otp:123456});
 /*(async ()=>{
     try {
       await  mongoose.connect(`${process.env.MONGODB_URI}/${DB_NAME}`);

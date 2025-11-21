@@ -1,4 +1,4 @@
-import mongoose, { isValidObjectId, Mongoose } from "mongoose";
+import { isValidObjectId, Mongoose } from "mongoose";
 import { Video } from "../models/video.model.js";
 import { User } from "../models/user.model.js";
 import { ApiError } from "../utils/ApiError.js";
@@ -11,15 +11,15 @@ import {
   uploadOnCloudinary,
 } from "../utils/cloudinary.js";
 import { Subscription } from "../models/subscription.model.js";
-import { escapeRegex } from "../utils/additionalUtils.js";
-
+import { escapeRegex, mongodbId } from "../utils/additionalUtils.js";
+import { redis } from "../redis/redis.setup.js";
 const searchVideos = asyncHandler(async (req, res) => {
   try {
     const {
       page = 1,
       limit = 10,
       query,
-      
+
       sortBy = "createdAt",
       sortType = "asc",
     } = req.query;
@@ -37,8 +37,6 @@ const searchVideos = asyncHandler(async (req, res) => {
       sortOrder = sortType === "asc" ? 1 : -1;
     }
     const sortObj = sortBy ? { [sortBy]: sortOrder } : {}; // Default to no sorting
-
-   
 
     const aggregateQuery = Video.aggregate([
       { $match: { ...filter, deleted: false } }, // Apply the filter
@@ -100,12 +98,6 @@ const publishAVideo = asyncHandler(async (req, res) => {
   try {
     const { title, tags } = req.body;
 
-    // step 1 : check if user is logged in
-    // step 2: check if video thumbnail description and title is provided
-    // step 3: upload video and thumanail to cloudinary
-    // setp 4: check if upload is successfull
-    // step 5: create a new videoDoc
-    // step 6: return res with video obj
     const userId = req?.user?._id;
     if (!userId) {
       throw new ApiError(401, "Unauthorized Access");
@@ -114,12 +106,9 @@ const publishAVideo = asyncHandler(async (req, res) => {
     if (!title) {
       throw new ApiError(400, "video title is required");
     }
-    console.log("req.files : ", req.files);
     const videoLocalpath = req.files?.videoFile[0]?.path;
-    console.log("Video loacalPath : ", videoLocalpath);
 
     const videoThumbnailLocalPath = req?.files?.thumbnail[0]?.path;
-    console.log("Thumbnail localPath : ", videoThumbnailLocalPath);
 
     if (!videoLocalpath) {
       throw new ApiError(
@@ -151,7 +140,6 @@ const publishAVideo = asyncHandler(async (req, res) => {
         "something went wrong while uploading thumbnail to cloudinary"
       );
     }
-    console.log("videoUrl obj : ", videoUrl);
     const video = await Video.create({
       videoFile: videoUrl?.url,
       title: title,
@@ -168,14 +156,10 @@ const publishAVideo = asyncHandler(async (req, res) => {
       throw new ApiError(500, "something went wrong while creating video doc");
     }
 
-    console.log("video doc : ", video);
-
     return res
       .status(200)
       .json(new ApiResponse(200, video, "videoUploaderSuccessfully"));
   } catch (error) {
-    console.log(error);
-
     throw new ApiError(500, error.message);
   }
 });
@@ -185,24 +169,19 @@ const getVideoById = asyncHandler(async (req, res) => {
   const userId = req?.user?._id;
   const ip =
     req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress;
-  console.log(videoId);
   const isValidId = isValidObjectId(videoId);
   if (!isValidId) {
     throw new ApiError(400, "Invalid videoId");
   }
-
-  const hasViewed = await View.findOne({
-    ip,
-    video: videoId,
-  });
-
+  // thinking of using redis here
+  const hasViewed = await redis.hgetall(`video::user::${ip}`);
   if (!hasViewed) {
-    await View.create({
+    await redis.hset(`video::user::${ip}`, {
       ip,
-      user: userId || null,
       video: videoId,
       // expiresAt is auto-set in model to 24h
     });
+    await redis.expire(`video::user::${ip}`, 60 * 60 * 24);
 
     const viewed = await Video.findByIdAndUpdate(videoId, {
       $inc: { views: 1 },
@@ -216,7 +195,7 @@ const getVideoById = asyncHandler(async (req, res) => {
 
   // 👇 Aggregate video details
   const video = await Video.aggregate([
-    { $match: { _id: new mongoose.Types.ObjectId(videoId), deleted: false } },
+    { $match: { _id: mongodbId(videoId), deleted: false } },
     {
       $lookup: {
         from: "likes",
@@ -316,7 +295,7 @@ const getVideoById = asyncHandler(async (req, res) => {
 });
 
 const updateVideo = asyncHandler(async (req, res) => {
-  const { videoId, tags,title } = req.body;
+  const { videoId, tags, title } = req.body;
   const userId = req.user?._id;
   const video = await Video.findById(videoId);
   if (!video) {
@@ -326,9 +305,7 @@ const updateVideo = asyncHandler(async (req, res) => {
   if (!isOwner) {
     throw new ApiError(400, "you have to be owner to update the video details");
   }
-  console.log("req.body : ", req.body);
-  console.log("req.file", req.file);
-  const thumbnailLocalPath = req?.file?.path; 
+  const thumbnailLocalPath = req?.file?.path;
   let updatedThumbnailLink = null;
 
   if (thumbnailLocalPath) {
@@ -336,7 +313,6 @@ const updateVideo = asyncHandler(async (req, res) => {
       thumbnailLocalPath,
       `${userId}'s_vid`
     );
-    console.log(updatedThumbnailLink);
     if (!updatedThumbnailLink) {
       throw new ApiError(500, "Failed to upload new thumbnail to Cloudinary");
     }
@@ -349,7 +325,7 @@ const updateVideo = asyncHandler(async (req, res) => {
     updateData.thumbnail = updatedThumbnailLink?.url;
     updateData.thumbnailPublicId = updatedThumbnailLink?.public_id;
   }
-  if(tags){
+  if (tags) {
     updateData.tags = tags;
   }
 
@@ -359,7 +335,7 @@ const updateVideo = asyncHandler(async (req, res) => {
 
   const updatedVideo = await Video.findByIdAndUpdate(
     videoId,
-    { $set: updateData, },
+    { $set: updateData },
     { new: true }
   );
   if (!updatedVideo) {
@@ -367,14 +343,13 @@ const updateVideo = asyncHandler(async (req, res) => {
   }
   if (updatedThumbnailLink) {
     const deletedResult = await deleteFromCloudinary(oldPublicId);
-    console.log("deleted old thumbnail : ", deletedResult);
   }
 
   return res
     .status(200)
     .json(new ApiResponse(200, updatedVideo, "Video updated successfully"));
 });
-
+// needs changes as the video delete is now handled by cron jobs
 const deleteVideo = asyncHandler(async (req, res) => {
   const { videoId } = req.query;
   const video = await Video.findById(videoId);
@@ -394,21 +369,10 @@ const deleteVideo = asyncHandler(async (req, res) => {
       deleted: true,
     },
   });
-  console.log("isDeleted", deletedVid.deleted);
 
   try {
     deleteFromCloudinary(videoPublicId).then((res) => {
-      console.log("cloudinary video deleted result ", res);
-      deleteFromCloudinary(thumbnailPublicId)
-        .then((res) => {
-          console.log(" res for thumbnail deletion", res);
-        })
-        .catch((e) => {
-          console.log("thumbnailError", e);
-        })
-        .catch((e) => {
-          console.log("videoError", e);
-        });
+      deleteFromCloudinary(thumbnailPublicId);
     });
   } catch (error) {
     console.warn(
@@ -421,7 +385,7 @@ const deleteVideo = asyncHandler(async (req, res) => {
   return res.status(200).json(
     new ApiResponse(
       200,
-      
+
       "video deleted successfully"
     )
   );
@@ -430,7 +394,6 @@ const deleteVideo = asyncHandler(async (req, res) => {
 const togglePublishStatus = asyncHandler(async (req, res) => {
   const { videoId } = req.body;
   const video = await Video.findById(videoId);
-  console.log(video);
   const isOwner = video.isOwner(req?.user?._id);
 
   if (!isOwner) {

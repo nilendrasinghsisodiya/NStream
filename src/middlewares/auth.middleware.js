@@ -10,9 +10,6 @@ export const verifyJwt = asyncHandler(async (req, res, next) => {
     const isOptional = req.header("Optional");
     if (!token && isOptional === "true") {
       req.user = null;
-      console.log(
-        "optional request forawading without auth because of absence of the token"
-      );
       next();
       return;
     }

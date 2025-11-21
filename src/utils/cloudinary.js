@@ -1,6 +1,5 @@
 import { v2 as cloudinary } from "cloudinary";
 import fs from "fs";
-import path from "path";
 
 // cloudinary Configuration
 cloudinary.config({
@@ -12,7 +11,7 @@ cloudinary.config({
 
 const uploadOnCloudinary = async (filePath, folderName) => {
 
-console.log("api_keu",process.env.ClOUDINARY_API_KEY);
+console.log("api_key",process.env.ClOUDINARY_API_KEY);
   try {
     console.log(filePath);
 
@@ -42,7 +41,7 @@ const deleteFromCloudinary = async (publicId) => {
     console.log("cloudinary destroy result : ", result);
     return result;
   } catch (error) {
-    console.error("Error while  delete deleting the files from  cloud", error.message);
+    console.error(`Error while  delete deleting the files from  cloud for ${publicId}`, error.message);
   }
 };
 

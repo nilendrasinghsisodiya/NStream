@@ -1,9 +1,9 @@
-import mongoose, { isValidObjectId } from "mongoose";
+import { isValidObjectId } from "mongoose";
 import { Playlist } from "../models/playlist.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
-
+import { mongodbId } from "../utils/additionalUtils.js";
 const createPlaylist = asyncHandler(async (req, res) => {
   const { name, description } = req.body;
   const userId = req?.user?._id;
@@ -26,13 +26,10 @@ const createPlaylist = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(new ApiResponse(200, playlist, "playlist created successfully"));
-  //TODO: create playlist
 });
 
 const getPlaylistById = asyncHandler(async (req, res) => {
   const { playlistId, page, limit = 5 } = req.query;
-  //TODO: get playlist by id
-
   const pageNum = Number(page);
   const pageLimit = Number(limit);
   const isValidId = isValidObjectId(playlistId);
@@ -43,7 +40,7 @@ const getPlaylistById = asyncHandler(async (req, res) => {
   const aggregateQuery = Playlist.aggregate([
     {
       $match: {
-        _id: new mongoose.Types.ObjectId(playlistId),
+        _id: mongodbId(playlistId),
       },
     },
     {
@@ -63,24 +60,25 @@ const getPlaylistById = asyncHandler(async (req, res) => {
               foreignField: "_id",
               as: "owner",
             },
-            
           },
-          { $unwind:"$owner" },
-          {$project:{
-            _id:1,
-            title:1,
-            thumbnail:1,
-            views:1,
-            duration:1,
-            likesCont:1,
+          { $unwind: "$owner" },
+          {
+            $project: {
+              _id: 1,
+              title: 1,
+              thumbnail: 1,
+              views: 1,
+              duration: 1,
+              likesCont: 1,
 
-            owner:{
-              _id:'$owner._id',
-              avatar:'$owner.avatar',
-              username:'$owner.username',
-              subscribersCount:"$owner.subscribersCount"
-            }
-          }}
+              owner: {
+                _id: "$owner._id",
+                avatar: "$owner.avatar",
+                username: "$owner.username",
+                subscribersCount: "$owner.subscribersCount",
+              },
+            },
+          },
         ],
         as: "videos",
       },
@@ -91,10 +89,10 @@ const getPlaylistById = asyncHandler(async (req, res) => {
         view: 1,
         name: 1,
         owner: 1,
-        duration:1,
+        duration: 1,
         description: 1,
         created_at: 1,
-        videos:"$videos",
+        videos: "$videos",
       },
     },
   ]);
@@ -109,19 +107,13 @@ const getPlaylistById = asyncHandler(async (req, res) => {
     },
   };
   const playlist = await Playlist.aggregatePaginate(aggregateQuery, options);
-  Playlist.findOneAndUpdate({_id:playlistId}, { $inc: { view: 1 } })
-    .then(() => {
-      console.log("view count incremented sucessfully");
-    })
-    .catch((err) => console.error(err.message));
-
-console.log(playlist);
+  await Playlist.findOneAndUpdate({ _id: playlistId }, { $inc: { view: 1 } });
   return res
     .status(200)
     .json(
       new ApiResponse(
         200,
-       {playlist:playlist.playlistVideos[0]} ,
+        { playlist: playlist.playlistVideos[0] },
         "playlist fetched successfully"
       )
     );
@@ -130,7 +122,7 @@ console.log(playlist);
 const addVideoToPlaylist = asyncHandler(async (req, res) => {
   const { playlistId, videoIds } = req.body;
   const userId = req?.user?._id;
-  const playlist = await Playlist.findById({_id:playlistId});
+  const playlist = await Playlist.findById({ _id: playlistId });
   const isOwner = playlist.isOwner(userId);
   if (!isOwner) {
     throw new ApiError(403, "forbidden access");
@@ -143,13 +135,11 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
   if (!Array.isArray(videoIds) || videoIds.length === 0) {
     throw new ApiError(400, "Invalid or empty videos array");
   }
-  console.log("req.body.videos : ", videoIds);
 
   const validVideos = videoIds.filter((ele) => isValidObjectId(ele));
 
-  console.log("valid videos array : ", validVideos);
   const updatedPlaylist = await Playlist.findByIdAndUpdate(
-  {_id:playlistId},
+    { _id: playlistId },
     {
       $addToSet: {
         videos: { $each: validVideos },
@@ -160,7 +150,6 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
     }
   );
 
-  console.log("updated playlist : ", updatedPlaylist);
   if (!updatedPlaylist) {
     throw new ApiError(500, "failded to add vidoes to playlist");
   }
@@ -177,7 +166,6 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
 
 const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
   const { playlistId, videoId } = req.body;
-  // TODO: remove video from playlist
   if (!isValidObjectId(playlistId) || !isValidObjectId(videoId)) {
     throw new ApiError(400, "invalid playlist or video id");
   }
@@ -221,7 +209,6 @@ const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
 
 const deletePlaylist = asyncHandler(async (req, res) => {
   const { playlistId } = req.body;
-  // TODO: delete playlist
   if (!isValidObjectId(playlistId)) {
     throw new ApiError(400, "invalid playlist id");
   }
@@ -236,7 +223,6 @@ const deletePlaylist = asyncHandler(async (req, res) => {
   }
 
   const deleteRes = await Playlist.findByIdAndDelete(playlistId);
-  console.log(deleteRes);
   if (!deleteRes) {
     throw new ApiError(500, "falied to delete playlist");
   }
@@ -248,7 +234,6 @@ const deletePlaylist = asyncHandler(async (req, res) => {
 const updatePlaylist = asyncHandler(async (req, res) => {
   const { playlistId } = req.body;
   const { name, description } = req.body;
-  //TODO: update playlist
   const userId = req?.user?._id;
   if (!userId) {
     throw new ApiError(401, "Unauthorized Access");
@@ -275,13 +260,13 @@ const updatePlaylist = asyncHandler(async (req, res) => {
     },
     { new: true }
   );
-  if (!updatePlaylist) {
+  if (!updatedPlaylist) {
     throw new ApiError(500, "failed to update the playlist");
   }
   return res
     .status(200)
     .json(
-      new ApiResponse(200, updatePlaylist, "playlist updated successfully")
+      new ApiResponse(200, updatedPlaylist, "playlist updated successfully")
     );
 });
 
