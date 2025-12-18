@@ -29,6 +29,7 @@ const getChannelStats = asyncHandler(async (req, res) => {
         from: "users",
         localField: "owner",
         foreignField: "_id",
+        as: "ownerDetails",
       },
     },
     { $unwind: { path: "$ownerDetails", preserveNullAndEmptyArrays: true } },
