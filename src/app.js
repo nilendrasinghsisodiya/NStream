@@ -19,13 +19,13 @@ app.use(helmet());
 // leaving at * because of issue in development because of self signed certs
 app.use(
   cors({
-   origin: 'http://localhost:5173', // ✅ Specific origin, NOT '*'
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH','DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization','optional'],
+    //origin: 'http://localhost:5173',// ✅ Specific origin, NOT '*'
+    credentials: true,
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "optional"],
   })
 );
-
 
 app.use(
   express.json({
