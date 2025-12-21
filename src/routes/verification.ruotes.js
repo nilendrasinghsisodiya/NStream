@@ -9,12 +9,12 @@ import {
 import { Router } from "express";
 import { verifyJwt } from "../middlewares/auth.middleware.js";
 
-const router = Router();
-router.route("verifyOtpDelete").post(verifyJwt, verifyOtpDelete);
-router.route("getOtpDelete").get(verifyJwt, getOtpDelete);
-router.route("verifyOtpSignUp").post(verifyJwt, verifyOtpSignUp);
-router.route("getOptSignUp").get(verifyJwt, getOtpSignUp);
-router.route("verifyOtpFp").post(verifyJwt, verifyOtpForgetPassword);
-router.route("getOtpFp").get(verifyJwt, getOtpForgetPassword);
+const verifyRouter = Router();
+verifyRouter.route("verifyOtpDelete").post(verifyJwt, verifyOtpDelete);
+verifyRouter.route("getOtpDelete").get(verifyJwt, getOtpDelete);
+verifyRouter.route("verifyOtpSignUp").post(verifyJwt, verifyOtpSignUp);
+verifyRouter.route("getOptSignUp").get(verifyJwt, getOtpSignUp);
+verifyRouter.route("verifyOtpFp").post(verifyJwt, verifyOtpForgetPassword);
+verifyRouter.route("getOtpFp").get(verifyJwt, getOtpForgetPassword);
 
-export default router;
+export { verifyRouter };

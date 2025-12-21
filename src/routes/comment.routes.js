@@ -8,14 +8,17 @@ import {
   addReply,
 } from "../controllers/comment.controller.js";
 
-const router = Router();
+const commentRouter = Router();
 
-router
+commentRouter
   .route("/")
   .post(verifyJwt, addComment)
   .delete(verifyJwt, deleteComment)
   .patch(verifyJwt, updateComment);
 
-router.route("/reply").post(verifyJwt,addReply).get(verifyJwt,getReplies);
+commentRouter
+  .route("/reply")
+  .post(verifyJwt, addReply)
+  .get(verifyJwt, getReplies);
 
-export default router;
+export { commentRouter };

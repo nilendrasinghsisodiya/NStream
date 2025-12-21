@@ -1,66 +1,65 @@
 import { Router } from "express";
 import {
-  registerUser,
-  loginUser,
-  logoutUser,
-  refreshAccessToken,
   changeCurrentPassword,
   updateAccountDetails,
   updateUserAvatar,
   getUserChannelProfile,
   getUserWatchHistory,
   getUserPlaylists,
-  // getUserTweets,
   createUser,
   toggleSubscribe,
-  searchUsers
+  searchUsers,
 } from "../controllers/user.controller.js";
 
 import { upload } from "../middlewares/multer.middleware.js";
 import { verifyJwt } from "../middlewares/auth.middleware.js";
-import { getUserRecommendation,getSubscribedVideos } from "../controllers/recommendation.controller.js";
+import {
+  getUserRecommendation,
+  getSubscribedVideos,
+} from "../controllers/recommendation.controller.js";
 import { likedVideo } from "../controllers/video.controller.js";
-import {createUserValidator,loginValidator,signUpValidator,toggleSubscribeValidator,searchUsersValidator,changePasswordValidator,updateAccountDetailsValidator} from "../validators/user.validators.js"
+import {
+  createUserValidator,
+  toggleSubscribeValidator,
+  searchUsersValidator,
+  changePasswordValidator,
+  updateAccountDetailsValidator,
+} from "../validators/user.validators.js";
 
-const router = Router();
+const userRouter = Router();
 
-
-router.route("/register").post(signUpValidator, registerUser);
-
-router.route("/login").post(loginValidator, loginUser);
-
-// secured routes
-
-router.route("/logout").post(verifyJwt, logoutUser);
-
-router.route("/create").put(
+userRouter.route("/create").put(
   verifyJwt,
   upload.fields([
     { name: "avatar", maxCount: 1 },
-    { name: "coverImage", maxCount: 1 }
+    { name: "coverImage", maxCount: 1 },
   ]),
   createUserValidator,
   createUser
 );
 
-router.route("/refresh-token").post(refreshAccessToken);
-router.route("/change-password").patch(verifyJwt,changePasswordValidator, changeCurrentPassword);
-router.route("/update-account").patch(verifyJwt, updateAccountDetailsValidator,updateAccountDetails);
+userRouter
+  .route("/change-password")
+  .patch(verifyJwt, changePasswordValidator, changeCurrentPassword);
+userRouter
+  .route("/update-account")
+  .patch(verifyJwt, updateAccountDetailsValidator, updateAccountDetails);
 
-router
+userRouter
   .route("/avatar")
-  .patch(verifyJwt, upload.single("avatar"),updateUserAvatar);
+  .patch(verifyJwt, upload.single("avatar"), updateUserAvatar);
 
+userRouter.route("/channel").get(verifyJwt, getUserChannelProfile);
 
-router.route("/channel").get(verifyJwt,getUserChannelProfile);
+userRouter.route("/history").get(verifyJwt, getUserWatchHistory);
 
-router.route("/history").get(verifyJwt, getUserWatchHistory);
-
-router.route("/playlists").get(getUserPlaylists);
-router.route("/recommendations").get(verifyJwt, getUserRecommendation);
-// router.route("/tweets").get(getUserTweets);
-router.route("/subscribe").post(verifyJwt,toggleSubscribeValidator,toggleSubscribe);
-router.route("/subscribedVideos").get(verifyJwt,getSubscribedVideos);
-router.route("/liked-videos").get(verifyJwt,likedVideo);
-router.route("/search").get(verifyJwt,searchUsersValidator,searchUsers);
-export default router;
+userRouter.route("/playlists").get(getUserPlaylists);
+userRouter.route("/recommendations").get(verifyJwt, getUserRecommendation);
+// userRouter.route("/tweets").get(getUserTweets);
+userRouter
+  .route("/subscribe")
+  .post(verifyJwt, toggleSubscribeValidator, toggleSubscribe);
+userRouter.route("/subscribedVideos").get(verifyJwt, getSubscribedVideos);
+userRouter.route("/liked-videos").get(verifyJwt, likedVideo);
+userRouter.route("/search").get(verifyJwt, searchUsersValidator, searchUsers);
+export { userRouter };
