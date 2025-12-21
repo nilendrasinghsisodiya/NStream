@@ -5,7 +5,7 @@ import path from "path";
 import helmet from "helmet";
 import fs from "fs";
 import https from "https";
-import { __dirname } from "./fileUtils.js";
+import { __dirname } from "./utils/fileUtils.js";
 
 const app = express();
 // const key = fs.readFileSync(
@@ -42,18 +42,19 @@ app.use(cookieParser());
 app.use(express.static("public"));
 
 // routes import
-import userRouter from "./routes/user.routes.js";
-import likeRouter from "./routes/like.routes.js";
-import videoRouter from "./routes/video.routes.js";
-import playlistRouter from "./routes/playlist.routes.js";
-// import tweetRouter from "./routes/tweet.routes.js";
-import commentRouter from "./routes/comment.routes.js";
-import dashboardRouter from "./routes/dashboard.routes.js";
-import healthcheckRouter from "./routes/healthCheck.routes.js";
-
+import { userRouter } from "./routes/user.routes.js";
+import { likeRouter } from "./routes/like.routes.js";
+import { videoRouter } from "./routes/video.routes.js";
+import { commentRouter } from "./routes/comment.routes.js";
+import { dashboardRouter } from "./routes/dashboard.routes.js";
+import { hcRouter } from "./routes/healthCheck.routes.js";
+import { playlistRouter } from "./routes/playlist.routes.js";
+import { authRouter } from "./routes/auth.routes.js";
 // routes declaration
 
 app.use("/api/v1/user", userRouter);
+
+app.use("/api/v1/auth", authRouter);
 
 app.use("/api/v1/like/", likeRouter);
 
@@ -64,7 +65,8 @@ app.use("/api/v1/playlist", playlistRouter);
 app.use("/api/v1/comment", commentRouter);
 
 app.use("/api/v1/dashboard", dashboardRouter);
-app.use("/healthCheck", healthcheckRouter);
+
+app.use("/healthCheck", hcRouter);
 
 // app.use("/api/v1/tweet", tweetRouter);
 app.get("/check", (req, res) => {
@@ -73,7 +75,7 @@ app.get("/check", (req, res) => {
 app.use(express.static(path.join(__dirname, "dist")));
 
 app.use((err, req, res, next) => {
-  console.error(err.stack); // Log error to console
+  console.error(err); // Log error to console
 
   res.status(err.statusCode || 500).json({
     success: false,
