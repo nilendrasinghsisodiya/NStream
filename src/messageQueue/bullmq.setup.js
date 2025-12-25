@@ -1,12 +1,11 @@
 // At the very top of each file that runs in its own process
-import dotenv from "dotenv";
-import path from "path";
+import { Queue } from 'bullmq';
+import { getRedis } from '../redis/redis.setup.js';
+export let otpQueue = undefined;
 
-dotenv.config({ path: path.resolve("test.env") });
-
-
-import { Queue } from "bullmq";
-import { redis } from "../redis/redis.setup.js";
-
-export const otpQueue = new Queue("otpQueue", { connection: redis });
-
+const redis = await getRedis();
+try {
+  otpQueue = new Queue('otpQueue', { connection: redis });
+} catch (err) {
+  console.log('messagequeue', err.message);
+}

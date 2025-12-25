@@ -119,4 +119,5 @@ public/temp/*
 
 ssl/*
 public/*
+tsconfig.json
 # End of https://mrkandreev.name/snippets/gitignore-generator/#Node
