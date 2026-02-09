@@ -1,7 +1,15 @@
 *.env
 .env
 .env*
+*.json
+.prettierrc
+.gitignore
+.git/*
+*.md
+
+eslint.config.js
+
 
 /.vscode
-/node_modules
-./dist
+/node_modules/*
+./dist/*
