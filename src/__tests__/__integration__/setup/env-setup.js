@@ -1,13 +1,3 @@
-import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-dotenv.config({
-  path: path.resolve(__dirname, '../../../../.env.test'),
-});
-
 console.log(process.env.NODE_ENV);
 
 import { beforeAll, afterAll, vi } from 'vitest';
@@ -52,6 +42,27 @@ vi.mock('../../../redis/redis.setup.js', () => ({
     get: vi.fn(),
     set: vi.fn(),
     del: vi.fn(),
+    hset: vi.fn(),
+    expire: vi.fn(),
+    hexpire: vi.fn(),
+    hdel: vi.fn(),
     quit: vi.fn(),
   }),
+}));
+
+vi.mock('../../../messageQueue/bullmq.setup.js', () => ({
+  getOtpQueue: () => ({
+    add: vi.fn(),
+  }),
+}));
+
+vi.mock('fs', () => ({
+  unlinkSync: vi.fn(),
+}));
+
+vi.mock('../../../utils/cloudinary.js', () => ({
+  uploadOnCloudinary: vi
+    .fn()
+    .mockResolvedValue({ url: 'cdn://test.com/test.jpg', duration: 200, public_id: '1234' }),
+  deleteFromCloudinary: vi.fn().mockResolvedValue({ result: 'ok' }),
 }));

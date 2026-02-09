@@ -1,4 +1,4 @@
-import { Video } from '../../../models/video.model.js';
+import { Video } from '../../../../models/video.model.js';
 import { seedUser } from './seedUser.js';
 
 export async function seedVideo({ ownerId, overrides = {} } = {}) {
@@ -11,8 +11,8 @@ export async function seedVideo({ ownerId, overrides = {} } = {}) {
     }
 
     const video = await Video.create({
-      videoFile: 'http://test.com/video.mp4',
-      thumbnail: 'http://test.com/thumb.jpg',
+      videoFile: 'http://test.com/testVideo.mp4',
+      thumbnail: 'http://test.com/testThumb.jpg',
       title: 'Test Video',
       duration: 120,
       owner,
