@@ -1,18 +1,14 @@
-import dotenv from 'dotenv';
-import path from 'path';
-import { __dirname } from './utils/fileUtils.js';
-//import { updateManyFieldsInDoc } from './utils/additionalUtils.js'; // only for dev
-
-const env_file_path = path.resolve(__dirname, '../.env');
-console.log(env_file_path);
-dotenv.config({ path: env_file_path });
+console.log(process.env.NODE_ENV);
+console.log(process.env.CLIENT);
 import connectDB from './db/connectDB.js';
 import { app } from './app.js';
 import { initRedis } from './redis/redis.setup.js';
 import { initOtpWorker } from './worker/otp.worker.js';
+import { initOtpQueue } from './messageQueue/bullmq.setup.js';
 const init = async () => {
   try {
     await connectDB();
+    console.log('DB CONNECTED SUCCESSFULLY');
   } catch (err) {
     console.error('DB CONNECTION:: failed', err.message);
 
@@ -21,12 +17,21 @@ const init = async () => {
 
   try {
     await initRedis();
+    console.log('REDIS CONNECTED SUCCESSFULLY');
   } catch (err) {
     console.error('REDIS INIT FAILED:: ', err.message);
   }
 
   try {
+    await initOtpQueue();
+    console.log('OTP QUEUE INIT SUCCESSFULLY');
+  } catch (err) {
+    console.error('OTP QUEUE INIT FAILED:: ', err.message);
+  }
+
+  try {
     await initOtpWorker();
+    console.log('OTP WORKER INIT SUCCESSFULLY');
   } catch (err) {
     console.error('OTP WORKER INIT FAILED:: ', err.message);
   }
