@@ -117,6 +117,9 @@ public/temp/*
 .yarn/install-state.gz
 .pnp.*
 
+.env.*
+.env
+
 ssl/*
 public/*
 tsconfig.json
