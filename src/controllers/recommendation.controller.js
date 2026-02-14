@@ -1,22 +1,18 @@
-import { isValidObjectId } from "mongoose";
-import { User } from "../models/user.model.js";
-import { Video } from "../models/video.model.js";
-import { ApiError } from "../utils/ApiError.js";
-import { ApiResponse } from "../utils/ApiResponse.js";
-import { asyncHandler } from "../utils/asyncHandler.js";
-import { mongodbId } from "../utils/additionalUtils.js";
+import { isValidObjectId } from 'mongoose';
+import { User } from '../models/user.model.js';
+import { Video } from '../models/video.model.js';
+import { ApiError } from '../utils/ApiError.js';
+import { ApiResponse } from '../utils/ApiResponse.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
+import { mongodbId } from '../utils/additionalUtils.js';
 /**
  *
  */
 const getUserRecommendation = asyncHandler(async (req, res) => {
-  if (!req.user) {
-    res
-      .status(200)
-      .json(
-        new ApiResponse(200, [], "optional request: user not found forwarding")
-      );
+  if (!req.user && req.optional) {
+    return res.status(200).json(new ApiResponse(200, {}, 'optional request: user not found'));
   }
-  const TagsArray = req.user.recentlyWatchedVideoTags;
+  const TagsArray = req.user ? req.user?.recentlyWatchedVideoTags : [];
 
   const recommendedVideos = await Video.aggregate([
     {
@@ -27,18 +23,18 @@ const getUserRecommendation = asyncHandler(async (req, res) => {
     },
     {
       $lookup: {
-        from: "users",
-        localField: "owner",
-        foreignField: "_id",
-        as: "owner",
+        from: 'users',
+        localField: 'owner',
+        foreignField: '_id',
+        as: 'owner',
       },
     },
-    { $unwind: { path: "$owner", preserveNullAndEmptyArrays: true } },
+    { $unwind: { path: '$owner', preserveNullAndEmptyArrays: true } },
     {
       $addFields: {
         matchCount: {
           $size: {
-            $setIntersection: ["$tags", TagsArray],
+            $setIntersection: ['$tags', TagsArray],
           },
         },
       },
@@ -54,10 +50,10 @@ const getUserRecommendation = asyncHandler(async (req, res) => {
         views: 1,
         likesCount: 1,
         owner: {
-          _id: "$owner._id",
-          avatar: "$owner.avatar",
-          username: "$owner.username",
-          subscribersCount: "$owner.subscribersCount",
+          _id: '$owner._id',
+          avatar: '$owner.avatar',
+          username: '$owner.username',
+          subscribersCount: '$owner.subscribersCount',
         },
       },
     },
@@ -65,13 +61,7 @@ const getUserRecommendation = asyncHandler(async (req, res) => {
 
   return res
     .status(200)
-    .json(
-      new ApiResponse(
-        200,
-        { ...recommendedVideos, optional: true },
-        "recommended videos"
-      )
-    );
+    .json(new ApiResponse(200, { ...recommendedVideos, optional: true }, 'recommended videos'));
 });
 
 const getRelatedVideos = asyncHandler(async (req, res) => {
@@ -80,7 +70,7 @@ const getRelatedVideos = asyncHandler(async (req, res) => {
   const pageLimit = Number(limit);
   const pageNum = Number(page);
   if (!isValidObjectId(videoId)) {
-    throw new ApiError(400, "invalid object id");
+    throw new ApiError(400, 'invalid object id');
   }
   const video = await Video.findById(videoId);
 
@@ -90,22 +80,22 @@ const getRelatedVideos = asyncHandler(async (req, res) => {
       $match: {
         _id: { $ne: video._id },
         deleted: false, // Exclude the current video
-        tags: { $in: ["test"] }, // Match videos that have tags in common
+        tags: { $in: ['test'] }, // Match videos that have tags in common
       },
     },
     {
       $lookup: {
-        from: "users",
-        foreignField: "_id",
-        localField: "owner",
-        as: "ownerDetails",
+        from: 'users',
+        foreignField: '_id',
+        localField: 'owner',
+        as: 'ownerDetails',
       },
     },
-    { $unwind: { path: "$ownerDetails", preserveNullAndEmptyArrays: true } },
+    { $unwind: { path: '$ownerDetails', preserveNullAndEmptyArrays: true } },
     {
       $addFields: {
         tagMatchCount: {
-          $size: { $setIntersection: ["$tags", tags] },
+          $size: { $setIntersection: ['$tags', tags] },
         },
       },
     },
@@ -120,10 +110,10 @@ const getRelatedVideos = asyncHandler(async (req, res) => {
         views: 1,
         tagMatchCount: 1,
         owner: {
-          avatar: "$ownerDetails.avatar",
-          _id: "$ownerDetails._id",
-          username: "$ownerDetails.username",
-          subscribersCount: "$ownerDetails.subscribersCount",
+          avatar: '$ownerDetails.avatar',
+          _id: '$ownerDetails._id',
+          username: '$ownerDetails.username',
+          subscribersCount: '$ownerDetails.subscribersCount',
         }, // Include the tag match count for sorting purposes
       },
     },
@@ -133,23 +123,18 @@ const getRelatedVideos = asyncHandler(async (req, res) => {
     page: pageNum,
     limit: pageLimit,
     customLabels: {
-      docs: "Videos",
-      totalDocs: "totalVideos",
-      page: "currentPage",
+      docs: 'Videos',
+      totalDocs: 'totalVideos',
+      page: 'currentPage',
     },
   };
-  const relatedVideos = await Video.aggregatePaginate(
-    aggregationQuery,
-    options
-  );
+  const relatedVideos = await Video.aggregatePaginate(aggregationQuery, options);
   if (!relatedVideos) {
-    throw new ApiError(500, "failed to fetch related videos");
+    throw new ApiError(500, 'failed to fetch related videos');
   }
   return res
     .status(200)
-    .json(
-      new ApiResponse(200, relatedVideos, "related vidoes fetched successfully")
-    );
+    .json(new ApiResponse(200, relatedVideos, 'related vidoes fetched successfully'));
 });
 
 const getPopularVideos = asyncHandler(async (req, res) => {
@@ -164,13 +149,13 @@ const getPopularVideos = asyncHandler(async (req, res) => {
 
     {
       $lookup: {
-        from: "users",
-        localField: "owner",
-        foreignField: "_id",
-        as: "owner",
+        from: 'users',
+        localField: 'owner',
+        foreignField: '_id',
+        as: 'owner',
       },
     },
-    { $unwind: { path: "$owner", preserveNullAndEmptyArrays: true } },
+    { $unwind: { path: '$owner', preserveNullAndEmptyArrays: true } },
 
     {
       $project: {
@@ -180,10 +165,10 @@ const getPopularVideos = asyncHandler(async (req, res) => {
         title: 1,
         views: 1,
         owner: {
-          _id: "$owner._id",
-          avatar: "$owner.avatar",
-          username: "$owner.username",
-          subscribersCount: "$owner.subscribersCount",
+          _id: '$owner._id',
+          avatar: '$owner.avatar',
+          username: '$owner.username',
+          subscribersCount: '$owner.subscribersCount',
         },
       },
     },
@@ -192,20 +177,15 @@ const getPopularVideos = asyncHandler(async (req, res) => {
     limit: Number(limit),
     page: Number(page),
     customLabels: {
-      totalDocs: "totalVideos",
-      page: "currentPage",
-      docs: "Videos",
+      totalDocs: 'totalVideos',
+      page: 'currentPage',
+      docs: 'Videos',
     },
   };
-  const popularVideos = await Video.aggregatePaginate(
-    popularVideosQuery,
-    options
-  );
+  const popularVideos = await Video.aggregatePaginate(popularVideosQuery, options);
   return res
     .status(200)
-    .json(
-      new ApiResponse(200, popularVideos, "popular videos fetched successfully")
-    );
+    .json(new ApiResponse(200, popularVideos, 'popular videos fetched successfully'));
 });
 
 const getSubscribedVideos = asyncHandler(async (req, res) => {
@@ -214,7 +194,7 @@ const getSubscribedVideos = asyncHandler(async (req, res) => {
   const pageNum = Number(page);
   const limitTo = Number(limit);
   if (!userId) {
-    throw new ApiError(400, "no userId for subscribed video");
+    throw new ApiError(400, 'no userId for subscribed video');
   }
   const videosQuery = User.aggregate([
     {
@@ -224,40 +204,40 @@ const getSubscribedVideos = asyncHandler(async (req, res) => {
     },
     {
       $lookup: {
-        from: "subscriptions",
-        localField: "_id",
-        foreignField: "subscriber",
-        as: "subscribedTo",
+        from: 'subscriptions',
+        localField: '_id',
+        foreignField: 'subscriber',
+        as: 'subscribedTo',
       },
     },
     {
       $unwind: {
-        path: "$subscribedTo",
+        path: '$subscribedTo',
         preserveNullAndEmptyArrays: false, // false if you only want subscribed users
       },
     },
     {
       $lookup: {
-        from: "videos",
-        let: { channelId: "$subscribedTo.channel" },
+        from: 'videos',
+        let: { channelId: '$subscribedTo.channel' },
         pipeline: [
           {
             $match: {
               $expr: {
-                $eq: ["$owner", "$$channelId"],
+                $eq: ['$owner', '$$channelId'],
               },
             },
           },
           {
             $lookup: {
-              from: "users",
-              localField: "owner",
-              foreignField: "_id",
-              as: "videoOwner",
+              from: 'users',
+              localField: 'owner',
+              foreignField: '_id',
+              as: 'videoOwner',
             },
           },
           {
-            $unwind: "$videoOwner",
+            $unwind: '$videoOwner',
           },
           {
             $project: {
@@ -269,15 +249,15 @@ const getSubscribedVideos = asyncHandler(async (req, res) => {
               duration: 1,
               createdAt: 1,
               owner: {
-                _id: "$videoOwner._id",
-                username: "$videoOwner.username",
-                avatar: "$videoOwner.avatar",
-                subscribersCount: "$videoOwner.subscribersCount",
+                _id: '$videoOwner._id',
+                username: '$videoOwner.username',
+                avatar: '$videoOwner.avatar',
+                subscribersCount: '$videoOwner.subscribersCount',
               },
             },
           },
         ],
-        as: "subscribedToVideos",
+        as: 'subscribedToVideos',
       },
     },
     {
@@ -287,10 +267,10 @@ const getSubscribedVideos = asyncHandler(async (req, res) => {
       },
     },
     {
-      $unwind: "$subscribedToVideos",
+      $unwind: '$subscribedToVideos',
     },
     {
-      $replaceRoot: { newRoot: "$subscribedToVideos" },
+      $replaceRoot: { newRoot: '$subscribedToVideos' },
     },
   ]);
 
@@ -298,26 +278,19 @@ const getSubscribedVideos = asyncHandler(async (req, res) => {
     limit: limitTo,
     page: pageNum,
     customLabels: {
-      page: "currentPage",
-      totalDocs: "totalVidoes",
-      docs: "Videos",
+      page: 'currentPage',
+      totalDocs: 'totalVidoes',
+      docs: 'Videos',
     },
   };
 
   const videos = await User.aggregatePaginate(videosQuery, options);
   if (videos.length === 0) {
-    throw new ApiError(404, "no subscribed to videos");
+    throw new ApiError(404, 'no subscribed to videos');
   }
   return res
     .status(200)
-    .json(
-      new ApiResponse(200, videos, "subscribed videos fetched sucessfully")
-    );
+    .json(new ApiResponse(200, videos, 'subscribed videos fetched sucessfully'));
 });
 
-export {
-  getUserRecommendation,
-  getRelatedVideos,
-  getPopularVideos,
-  getSubscribedVideos,
-};
+export { getUserRecommendation, getRelatedVideos, getPopularVideos, getSubscribedVideos };

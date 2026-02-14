@@ -1,18 +1,18 @@
-import { User } from "../models/user.model.js";
-import { Video } from "../models/video.model.js";
-import { Like } from "../models/like.model.js";
-import { ApiResponse } from "../utils/ApiResponse.js";
-import { asyncHandler } from "../utils/asyncHandler.js";
-import { ApiError } from "../utils/ApiError.js";
-import { isValidObjectId } from "mongoose";
-import { mongodbId } from "../utils/additionalUtils.js";
+import { User } from '../models/user.model.js';
+import { Video } from '../models/video.model.js';
+import { Like } from '../models/like.model.js';
+import { ApiResponse } from '../utils/ApiResponse.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
+import { ApiError } from '../utils/ApiError.js';
+import { isValidObjectId } from 'mongoose';
+import { mongodbId } from '../utils/additionalUtils.js';
 const toggleVideoLike = asyncHandler(async (req, res) => {
   const { videoId } = req.body;
   // check if video with this id exist of not
-  let message = "";
+  let message = '';
 
   if (!isValidObjectId(videoId)) {
-    throw new ApiError(400, "Invalid Video id");
+    throw new ApiError(400, 'Invalid Video id');
   }
   const userId = req?.user?._id;
   const existingLike = await Like.findOne({
@@ -25,21 +25,15 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
       likedBy: userId,
       video: mongodbId(videoId),
     });
-    Video.findByIdAndUpdate(
-      { _id: mongodbId(videoId) },
-      { $inc: { likesCount: 1 } }
-    );
+    Video.findByIdAndUpdate({ _id: mongodbId(videoId) }, { $inc: { likesCount: 1 } });
     if (!like) {
-      throw new ApiError(400, " Failed to like the video");
+      throw new ApiError(400, ' Failed to like the video');
     }
-    message = "video liked sucessfully";
+    message = 'video liked sucessfully';
   } else {
     await Like.deleteOne({ _id: existingLike._id });
-    Video.findByIdAndUpdate(
-      { _id: mongodbId(videoId) },
-      { $inc: { likesCount: -1 } }
-    );
-    message = "video disLiked sucessfully";
+    Video.findByIdAndUpdate({ _id: mongodbId(videoId) }, { $inc: { likesCount: -1 } });
+    message = 'video disLiked sucessfully';
   }
   return res.status(200).json(new ApiResponse(200, {}, message));
 });
@@ -48,7 +42,7 @@ const toggleCommentLike = asyncHandler(async (req, res) => {
   const userId = req?.user?._id;
 
   if (!targetId) {
-    throw new ApiError("invalid or empty targetId");
+    throw new ApiError('invalid or empty targetId');
   }
   const liked = await Like.findOne({
     comment: targetId,
@@ -62,20 +56,16 @@ const toggleCommentLike = asyncHandler(async (req, res) => {
     });
 
     if (!like) {
-      throw new ApiError(500, "failed to like the comment");
+      throw new ApiError(500, 'failed to like the comment');
     }
-    return res
-      .status(200)
-      .json(new ApiResponse(200, {}, "comment liked sucessfully"));
+    return res.status(200).json(new ApiResponse(200, {}, 'comment liked sucessfully'));
   } else {
     const like = await Like.deleteOne({ likedBy: userId });
     if (!like) {
-      throw new ApiError(500, "failed to unlike comment");
+      throw new ApiError(500, 'failed to unlike comment');
     }
 
-    return res
-      .status(200)
-      .json(new ApiResponse(200, "comment unliked sucessfully"));
+    return res.status(200).json(new ApiResponse(200, 'comment unliked sucessfully'));
   }
 });
 export { toggleVideoLike, toggleCommentLike };

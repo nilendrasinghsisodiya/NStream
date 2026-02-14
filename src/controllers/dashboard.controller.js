@@ -1,15 +1,11 @@
-import mongoose from "mongoose";
-import { Video } from "../models/video.model.js";
-import { User } from "../models/user.model.js";
-import { Subscription } from "../models/subscription.model.js";
-import { Like } from "../models/like.model.js";
-import { ApiError } from "../utils/ApiError.js";
-import { ApiResponse } from "../utils/ApiResponse.js";
-import { asyncHandler } from "../utils/asyncHandler.js";
-import { populate } from "dotenv";
-import { Comment } from "../models/comment.model.js";
-import { PresistView } from "../models/view.model.js";
-import { mongodbId } from "../utils/additionalUtils.js";
+import { Video } from '../models/video.model.js';
+import { User } from '../models/user.model.js';
+import { Subscription } from '../models/subscription.model.js';
+import { ApiError } from '../utils/ApiError.js';
+import { ApiResponse } from '../utils/ApiResponse.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
+import { PresistView } from '../models/view.model.js';
+import { mongodbId } from '../utils/additionalUtils.js';
 
 const getChannelStats = asyncHandler(async (req, res) => {
   const userId = req.user._id;
@@ -26,23 +22,23 @@ const getChannelStats = asyncHandler(async (req, res) => {
     { $limit: 5 },
     {
       $lookup: {
-        from: "users",
-        localField: "owner",
-        foreignField: "_id",
-        as: "ownerDetails",
+        from: 'users',
+        localField: 'owner',
+        foreignField: '_id',
+        as: 'ownerDetails',
       },
     },
-    { $unwind: { path: "$ownerDetails", preserveNullAndEmptyArrays: true } },
+    { $unwind: { path: '$ownerDetails', preserveNullAndEmptyArrays: true } },
 
     {
       $project: {
         thumbnail: 1,
         views: 1,
         owner: {
-          avatar: "$ownerDetails.avatar",
-          username: "$ownerDetails.username",
-          subscribersCount: "$ownerDetails.subscribersCount",
-          _id: "$ownerDetails._id",
+          avatar: '$ownerDetails.avatar',
+          username: '$ownerDetails.username',
+          subscribersCount: '$ownerDetails.subscribersCount',
+          _id: '$ownerDetails._id',
         },
         title: 1,
         duration: 1,
@@ -96,36 +92,30 @@ const getChannelStats = asyncHandler(async (req, res) => {
         subsInLast24Hrs,
         // userComments,
       },
-      "stats fetched successfully"
-    )
+      'stats fetched successfully',
+    ),
   );
 });
 
 const getChannelVideos = asyncHandler(async (req, res) => {
-  const {
-    page = 1,
-    limit = 10,
-    sortBy = "createdAt",
-    sortType = "asc",
-    username,
-  } = req?.query;
+  const { page = 1, limit = 10, sortBy = 'createdAt', sortType = 'asc', username } = req.query;
 
   const pageNum = Number(page);
   const pageLimit = Number(limit);
   const user = await User.findOne({ username });
 
-  const sortOrder = sortType === "asc" ? 1 : -1;
+  const sortOrder = sortType === 'asc' ? 1 : -1;
   const aggregateQuery = Video.aggregate([
-    { $match: { owner: user?._id, deleted: false } },
+    { $match: { owner: user._id, deleted: false } },
     {
       $lookup: {
-        from: "users",
-        localField: "owner",
-        foreignField: "_id",
-        as: "ownerDetails",
+        from: 'users',
+        localField: 'owner',
+        foreignField: '_id',
+        as: 'ownerDetails',
       },
     },
-    { $unwind: "$ownerDetails" },
+    { $unwind: '$ownerDetails' },
     {
       $project: {
         _id: 1,
@@ -137,10 +127,10 @@ const getChannelVideos = asyncHandler(async (req, res) => {
         likesCount: 1,
         tags: 1,
         owner: {
-          _id: "$ownerDetails._id",
-          avatar: "$ownerDetails.avatar",
-          username: "$ownerDetails.username",
-          subscribersCount: "$ownerDetails.subscribersCount",
+          _id: '$ownerDetails._id',
+          avatar: '$ownerDetails.avatar',
+          username: '$ownerDetails.username',
+          subscribersCount: '$ownerDetails.subscribersCount',
         },
       },
     },
@@ -151,20 +141,18 @@ const getChannelVideos = asyncHandler(async (req, res) => {
     page: pageNum,
     limit: pageLimit,
     customLabels: {
-      docs: "Videos",
-      totalDocs: "total videos",
-      totalPages: "total pages",
-      page: "current page",
+      docs: 'Videos',
+      totalDocs: 'total videos',
+      totalPages: 'total pages',
+      page: 'current page',
     },
   };
 
   const videos = await Video.aggregatePaginate(aggregateQuery, options);
   if (!videos) {
-    throw new ApiError(400, "Failed to fetch channel videos");
+    throw new ApiError(400, 'Failed to fetch channel videos');
   }
-  return res
-    .status(200)
-    .json(new ApiResponse(200, videos, "channel videos fetched successfully"));
+  return res.status(200).json(new ApiResponse(200, videos, 'channel videos fetched successfully'));
 });
 
 export { getChannelStats, getChannelVideos };
