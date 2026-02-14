@@ -21,10 +21,8 @@ export const validate = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     // Format errors nicely
-    const extractedErrors = errors.array().map((err) => ({
-      field: err.type,
-      message: err.msg,
-    }));
+    const extractedErrors = restructureValidationErrors(errors);
+    console.log(extractedErrors);
     throw new ApiError(400, 'wrong input fields', extractedErrors);
   }
   next();
@@ -32,4 +30,10 @@ export const validate = (req, res, next) => {
 
 export const mongodbId = (id) => {
   return new mongoose.Types.ObjectId(id);
+};
+
+export const restructureValidationErrors = (errors) => {
+  return errors
+    .array({ onlyFirstErrors: true })
+    .map((err) => ({ field: err.path, message: err.msg }));
 };
