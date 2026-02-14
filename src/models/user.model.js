@@ -1,7 +1,7 @@
-import mongoose from "mongoose";
-import jwt from "jsonwebtoken";
-import bcrypt from "bcrypt";
-import mongooseAggregatePaginate from "mongoose-aggregate-paginate-v2";
+import mongoose from 'mongoose';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcrypt';
+import mongooseAggregatePaginate from 'mongoose-aggregate-paginate-v2';
 const userSchema = new mongoose.Schema(
   {
     username: {
@@ -9,8 +9,7 @@ const userSchema = new mongoose.Schema(
       unique: true,
       lowercase: true,
       trim: true,
-      index:true,
-      
+      index: true,
     },
     email: {
       type: String,
@@ -18,75 +17,60 @@ const userSchema = new mongoose.Schema(
       unique: true,
       lowercase: true,
       trim: true,
-      index:true
+      index: true,
     },
     fullname: {
       type: String,
-      index:true,
+      index: true,
       trim: true,
-      
     },
     avatar: {
       type: String, //cloud url
-     
     },
     watchHistory: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Video",
+        ref: 'Video',
       },
     ],
     password: {
       type: String, // needs to encrypt and decrypted
-      required: [true, "password is required"],
+      required: [true, 'password is required'],
     },
     refreshToken: {
       type: String,
     },
     avatarPublicId: {
       type: String,
-     
     },
-    recentlyWatchedVideoTags: [{ type: String}],
-    subscribersCount:{
-      type:Number,
-      default:0,
+    recentlyWatchedVideoTags: [{ type: String }],
+    subscribersCount: {
+      type: Number,
+      default: 0,
     },
-    description:{
-      type:String,
-      default:"",
+    description: {
+      type: String,
+      default: '',
     },
-    isProfileComplete:{
-      type:Boolean,
-      default:false
-    }
+    isProfileComplete: {
+      type: Boolean,
+      default: false,
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
-userSchema.plugin(mongooseAggregatePaginate)
-userSchema.pre("save", async function (next) {
-  console.log("🔹 Running pre-save hook for:", this.email);
-
-  if (!this.isModified("password")) {
-    console.log(" Password not modified, skipping hashing.");
-    return next();
+userSchema.plugin(mongooseAggregatePaginate);
+userSchema.pre('save', async function () {
+  if (!this.isModified('password')) {
+    return;
   }
 
-  console.log("Password Before Hashing:", this.password);
   this.password = await bcrypt.hash(this.password, 10);
-  console.log("Hashed Password:", this.password);
-  
-  next();
 });
 
 userSchema.methods.isPasswordCorrect = async function (password) {
-  console.log("Entered Password:", password);
-  console.log("Stored Hashed Password:", this.password);
- 
-
   const result = await bcrypt.compare(password, this.password);
-  console.log("Password Match Result:", result);
-  
+
   return result;
 };
 
@@ -101,7 +85,7 @@ userSchema.methods.generateAccessToken = function () {
     process.env.ACCESS_TOKEN_SECRET,
     {
       expiresIn: process.env.ACCESS_TOKEN_EXPIRY, // option object
-    }
+    },
   );
 };
 userSchema.methods.generateRefreshToken = function () {
@@ -113,8 +97,8 @@ userSchema.methods.generateRefreshToken = function () {
     {
       expiresIn: process.env.REFRESH_TOKEN_EXPIRY,
       // options object
-    }
+    },
   );
 };
 
-export const User = mongoose.model("User", userSchema);
+export const User = mongoose.model('User', userSchema);

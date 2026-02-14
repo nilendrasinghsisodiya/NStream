@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 
 const viewSchema = new mongoose.Schema(
-   {
+  {
     ip: {
       type: String,
       required: true,
@@ -24,36 +24,37 @@ const viewSchema = new mongoose.Schema(
   },
   {
     timestamps: true, // creates createdAt and updatedAt (for auditing)
-  }
+  },
 );
 
 viewSchema.index({ ip: 1, video: 1, user: 1, createdAt: 1 });
 
 const View = mongoose.model('View', viewSchema);
 
-
-const presisitViewSchema = new mongoose.Schema({
-    video:{
-        type:mongoose.Schema.ObjectId,
-        ref:"Video",
-        required:true,
-        index:true
+const presisitViewSchema = new mongoose.Schema(
+  {
+    video: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'Video',
+      required: true,
+      index: true,
     },
-    channelViewed:{
-        type:mongoose.Schema.ObjectId,
-        ref:"User",
-        required:true,
-        index:true,
+    channelViewed: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'User',
+      required: true,
+      index: true,
     },
-    viewedBy:{
-        type:mongoose.Schema.ObjectId,
-        ref:"User",
-        required:true,
-        index:true
-    }
+    viewedBy: {
+      type: mongoose.Schema.ObjectId,
+      ref: 'User',
+      required: true,
+      index: true,
+    },
+  },
+  { timestamps: true },
+);
 
-},{timestamps:true});
+const PresistView = mongoose.model('PresistView', presisitViewSchema);
 
-const PresistView = mongoose.model("PresistView",presisitViewSchema)
-
-export { View,PresistView};
+export { View, PresistView };

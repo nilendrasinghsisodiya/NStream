@@ -1,5 +1,5 @@
-import mongoose, { Schema } from "mongoose";
-import mongooseAggregatePaginate from "mongoose-aggregate-paginate-v2";
+import mongoose, { Schema } from 'mongoose';
+import mongooseAggregatePaginate from 'mongoose-aggregate-paginate-v2';
 
 const videoSchema = new Schema(
   {
@@ -14,16 +14,16 @@ const videoSchema = new Schema(
     title: {
       type: String,
       required: true,
-      index:true
+      index: true,
     },
     // description: {
     //   type: String,
     //   required: true,
     // },
-    deleted:{
-      type:Boolean,
-      default:false,
-      index:true,
+    deleted: {
+      type: Boolean,
+      default: false,
+      index: true,
     },
     duration: {
       type: Number, //cloud content info
@@ -35,7 +35,7 @@ const videoSchema = new Schema(
     },
     owner: {
       type: Schema.Types.ObjectId,
-      ref: "User",
+      ref: 'User',
       required: true,
     },
     isPublished: {
@@ -44,29 +44,28 @@ const videoSchema = new Schema(
     },
     videoFilePublicId: {
       type: String,
-      required: true
+      required: true,
     },
-    thumbnailPublicId:{
+    thumbnailPublicId: {
       type: String,
-      required: true
+      required: true,
     },
-    tags:{
-      type:[String],
-      
+    tags: {
+      type: [String],
     },
-    likesCount:{
-      type:Number,
-      default:0,
-    }
+    likesCount: {
+      type: Number,
+      default: 0,
+    },
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 videoSchema.plugin(mongooseAggregatePaginate);
-videoSchema.methods.isOwner = function(userId){
- return String(userId) === String(this.owner._id);
-}
+videoSchema.methods.isOwner = function (userId) {
+  return String(userId) === String(this.owner._id);
+};
 
-export const Video = mongoose.model("Video", videoSchema);
+export const Video = mongoose.model('Video', videoSchema);
