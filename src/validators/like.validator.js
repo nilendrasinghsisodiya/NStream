@@ -1,21 +1,25 @@
-import { body } from "express-validator";
-import { ApiError } from "../utils/ApiError.js";
-import { validate } from "../utils/additionalUtils.js";
-import { isValidObjectId } from "mongoose";
+import { body } from 'express-validator';
+import { ApiError } from '../utils/ApiError.js';
+import { validate } from '../utils/additionalUtils.js';
+import { isValidObjectId } from 'mongoose';
 
 const toggleVideoLikeValidator = [
-  body("videoId")
-    .notEmpty().withMessage("videoId is required")
+  body('videoId')
+    .notEmpty()
+    .withMessage('videoId is required')
     .bail()
-    .custom((value) => isValidObjectId(value)).withMessage("Invalid videoId"),
+    .custom((value) => isValidObjectId(value))
+    .withMessage('Invalid videoId'),
   validate,
 ];
 
 const toggleCommentLikeValidator = [
-  body("targetId")
-    .notEmpty().withMessage("targetId is required")
+  body('targetId')
+    .notEmpty()
+    .withMessage('targetId is required')
     .bail()
-    .custom((value) => isValidObjectId(value)).withMessage("Invalid targetId"),
+    .custom((value) => isValidObjectId(value))
+    .withMessage('Invalid targetId'),
   validate,
 ];
 
