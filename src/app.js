@@ -1,31 +1,22 @@
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
-//import path from 'path';
 import helmet from 'helmet';
-//import fs from "fs";
-//import https from "https";
-//import { __dirname } from "./utils/fileUtils.js";
 
 const app = express();
-// const key = fs.readFileSync(
-//   path.join(__dirname, "../ssl/nstream.backend-key.pem")
-// );
-// const cert = fs.readFileSync(
-//   path.join(__dirname, "../ssl/nstream.backend.pem")
-// );
 
-app.use(helmet());
-// leaving at * because of issue in development because of self signed certs
+console.log('CLIENT ORIGIN =', process.env.CLIENT);
+
 app.use(
   cors({
     credentials: true,
-    origin: '*',
+    origin: process.env.CLIENT,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'optional'],
   }),
 );
 
+app.use(helmet());
 app.use(
   express.json({
     limit: '16kb',
@@ -76,11 +67,13 @@ app.get('/check', (req, res) => {
 
 app.use((err, req, res, next) => {
   console.error(err); // Log error to console
-
-  res.status(err.statusCode || 500).json({
+  console.error('ERROR IN:', req.method, req.originalUrl);
+  console.error(err.stack);
+  return res.status(err.statusCode || 500).json({
     success: false,
     status: err.statusCode,
     message: err.message || 'Internal Server Error',
+    ...err,
   });
 });
 
