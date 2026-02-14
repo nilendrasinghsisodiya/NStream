@@ -1,20 +1,8 @@
-import {
-  verifyOtpDelete,
-  verifyOtpSignUp,
-  verifyOtpForgetPassword,
-  getOtpDelete,
-  getOtpSignUp,
-  getOtpForgetPassword,
-} from "../controllers/verifications.controller.js";
-import { Router } from "express";
-import { verifyJwt } from "../middlewares/auth.middleware.js";
-
+import { getOtp, verifyOtp } from '../controllers/verifications.controller.js';
+import { Router } from 'express';
+import { requireBody } from '../middlewares/requireBody.middleware.js';
 const verifyRouter = Router();
-verifyRouter.route("verifyOtpDelete").post(verifyJwt, verifyOtpDelete);
-verifyRouter.route("getOtpDelete").get(verifyJwt, getOtpDelete);
-verifyRouter.route("verifyOtpSignUp").post(verifyJwt, verifyOtpSignUp);
-verifyRouter.route("getOptSignUp").get(verifyJwt, getOtpSignUp);
-verifyRouter.route("verifyOtpFp").post(verifyJwt, verifyOtpForgetPassword);
-verifyRouter.route("getOtpFp").get(verifyJwt, getOtpForgetPassword);
 
+verifyRouter.route('/get-otp').post(requireBody, getOtp);
+verifyRouter.route('/verify-otp').post(requireBody, verifyOtp);
 export { verifyRouter };
