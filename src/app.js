@@ -41,6 +41,8 @@ import { hcRouter } from './routes/healthCheck.routes.js';
 import { playlistRouter } from './routes/playlist.routes.js';
 import { authRouter } from './routes/auth.routes.js';
 import { tokenedRouter } from './routes/tokened.routes.js';
+import { verifyRouter } from './routes/verification.ruotes.js';
+
 // routes declaration
 
 app.use('/api/v1/user', userRouter);
@@ -60,12 +62,13 @@ app.use('/api/v1/comment', commentRouter);
 app.use('/api/v1/dashboard', dashboardRouter);
 
 app.use('/healthCheck', hcRouter);
+app.use('/api/v1/dashboard', verifyRouter);
 
-app.get('/check', (req, res) => {
+app.get('/check', (_, res) => {
   res.send('hello world');
 });
 
-app.use((err, req, res, next) => {
+app.use((err, req, res, _) => {
   console.error(err); // Log error to console
   console.error('ERROR IN:', req.method, req.originalUrl);
   console.error(err.stack);
