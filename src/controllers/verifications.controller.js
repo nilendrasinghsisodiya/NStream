@@ -30,7 +30,7 @@ const getOtp = asyncHandler(async (req, res) => {
   const otpState = populateOtp(user._id, hashedOtp);
   await redis.hset(key, otpState);
   await expireOtp(key, 600);
-  await otpQueue.add('opt', {
+  await otpQueue.add('otp', {
     usermail: email,
     otp: otp,
   });
@@ -53,7 +53,7 @@ const verifyOtp = asyncHandler(async (req, res) => {
     const options = {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'deploy',
-      sameSite: process.env.NODE_ENV === 'deploy' ? 'None' : 'lax',
+      sameSite: 'lax',
     };
 
     return res

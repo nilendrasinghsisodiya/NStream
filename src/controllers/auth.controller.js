@@ -3,7 +3,7 @@ import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import jwt from 'jsonwebtoken';
-
+import { getOtpQueue } from '../messageQueue/bullmq.setup.js';
 const registerUser = asyncHandler(async (req, res) => {
   const { email, password, username } = req.body;
 
@@ -32,6 +32,12 @@ const registerUser = asyncHandler(async (req, res) => {
   if (!userExist) {
     throw new ApiError(500, 'Something went wrong while registering the user');
   }
+  const queue = await getOtpQueue();
+  queue.add('otToken', {
+    action: 'verifyEmail',
+    usermail: userExist.email,
+    userName: userExist.username,
+  });
   return res.status(201).json(new ApiResponse(200, userExist, 'User created Successfully'));
 });
 
@@ -138,8 +144,8 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 
     const options = {
       httpOnly: true,
-      secure: true,
-      sameSite: 'None',
+      secure: process.env.NODE_ENV === 'deploy',
+      sameSite: 'lax',
     };
 
     const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(user._id);

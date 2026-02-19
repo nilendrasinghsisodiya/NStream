@@ -28,7 +28,7 @@ const resetPassword = asyncHandler(async (req, res) => {
   const options = {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'deploy',
-    sameSite: process.env.NODE_ENV === 'deploy' ? 'None' : 'lax',
+    sameSite: 'lax',
   };
 
   return res
