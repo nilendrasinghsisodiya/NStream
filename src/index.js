@@ -3,7 +3,6 @@ console.log(process.env.CLIENT);
 import connectDB from './db/connectDB.js';
 import { app } from './app.js';
 import { initRedis } from './redis/redis.setup.js';
-import { initOtpWorker } from './worker/otp.worker.js';
 import { initOtpQueue } from './messageQueue/bullmq.setup.js';
 const init = async () => {
   try {
@@ -29,12 +28,6 @@ const init = async () => {
     console.error('OTP QUEUE INIT FAILED:: ', err.message);
   }
 
-  try {
-    await initOtpWorker();
-    console.log('OTP WORKER INIT SUCCESSFULLY');
-  } catch (err) {
-    console.error('OTP WORKER INIT FAILED:: ', err.message);
-  }
   app.on('error', (error) => {
     console.error('APPLICATION ERROR ::', error);
     throw error;
